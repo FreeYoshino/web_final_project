@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  db:
+    # 使用官方的 PostgreSQL 映像檔 (Alpine 版本體積小、啟動快)
+    image: postgres:15-alpine
+    container_name: roommate_postgres
+    restart: always
+    environment:
+      # 這裡設定資料庫的預設帳號密碼與資料庫名稱
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      # 將本機的 5432 port 對應到容器內的 5432 port
+      - "5432:5432"
+    volumes:
+      # 將資料庫的資料存到本地，這樣容器關掉重開資料才不會不見！
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  # 定義一個名為 postgres_data 的 volume
+  postgres_data:
