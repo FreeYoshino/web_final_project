@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from app.db.database import Base
 
 # import 所有model(user, group, expense...)
-# from app.models import expense
+from app.models import User, Group, GroupMember, Expense, ExpenseSplit, Settlement
 
 load_dotenv()
 
