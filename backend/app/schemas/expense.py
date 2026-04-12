@@ -90,3 +90,56 @@ class ExpenseListResponse(BaseSchema):
     page: int
     size: int
     pages: int
+
+"""ExpenseSplit相關的schema"""
+class ExpenseSplitBase(BaseSchema):
+    """ExpenseSplit 的基礎欄位"""
+    expense_id: UUID = Field(..., description="費用ID")
+    user_id: UUID = Field(..., description="分攤使用者ID")
+    split_amount: Decimal = Field(..., ge=0, decimal_places=2, description="分攤金額")
+    is_settled: bool = Field(default=False, description="是否已結算")
+    settled_at: Optional[datetime] = Field(None, description="結算時間")
+
+    @field_validator('split_amount')
+    @classmethod
+    def validate_split_amount(cls, v: Decimal) -> Decimal:
+        if v > Decimal('99999999.99'):
+            raise ValueError('分攤金額超過最大值 99,999,999.99')
+        return v
+
+class ExpenseSplitCreate(ExpenseSplitBase):
+    """建立 ExpenseSplit 的輸入 schema"""
+    pass
+
+class ExpenseSplitUpdatePUT(ExpenseSplitBase):
+    """更新 ExpenseSplit 的輸入 schema"""
+    # PUT請求需要提供完整的ExpenseSplit資料進行替換
+    pass
+
+class ExpenseSplitUpdatePATCH(BaseSchema):
+    """更新 ExpenseSplit 的輸入 schema"""
+    split_amount: Optional[Decimal] = Field(None, ge=0, decimal_places=2)
+    is_settled: Optional[bool] = None
+    settled_at: Optional[datetime] = None
+
+    @field_validator('split_amount')
+    @classmethod
+    def validate_split_amount(cls, v: Optional[Decimal]) -> Optional[Decimal]:
+        if v is not None and v > Decimal('99999999.99'):
+            raise ValueError('分攤金額超過最大值 99,999,999.99')
+        return v
+
+class ExpenseSplitResponse(ExpenseSplitBase, IDSchema):
+    """ExpenseSplit 的完整回應 schema"""
+
+    # 關聯資料
+    user_name: Optional[str] = None  # 使用者姓名
+    expense_description: Optional[str] = None  # 費用描述
+
+    model_config = ConfigDict(
+        **ExpenseBase.model_config,
+        json_encoders={
+            Decimal: lambda v: str(v),
+            UUID: lambda v: str(v),
+        }
+    )
