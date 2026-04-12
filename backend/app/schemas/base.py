@@ -8,3 +8,10 @@ class BaseSchema(BaseModel):
         from_attributes=True,   # 允許從ORM物件轉換
         populate_by_name=True,  # 允許別名映射
     )
+
+class TimestampSchema(BaseSchema):
+    created_at: datetime
+    updated_at: datetime
+
+class IDSchema(BaseSchema):
+    id: uuid.UUID
