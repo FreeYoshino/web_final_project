@@ -16,7 +16,7 @@ class ExpenseBase(BaseSchema):
     paid_by_id: UUID = Field(..., description="付款人ID")
     group_id: UUID = Field(..., description="群組ID")
     category: Optional[str] = Field(None, max_length=50, description="費用類別")
-    split_type: SplitType = Field(default="EQUAL", description="分帳类型")
+    split_type: SplitType = Field(default="EQUAL", description="分帳類型")
     expense_date: datetime = Field(..., description="費用發生日期")
 
     @field_validator("amount")
@@ -27,11 +27,24 @@ class ExpenseBase(BaseSchema):
             raise ValueError('金額超過最大值 99,999,999.99')
         return value
 
+
+class ExpenseSplitCreateItem(BaseSchema):
+    '''建立 Expense 時的分攤明細輸入'''
+    user_id: UUID = Field(..., description="分攤使用者ID")
+    split_amount: Decimal = Field(..., ge=0, decimal_places=2, description="分攤金額")
+
+    @field_validator('split_amount')
+    @classmethod
+    def validate_split_amount(cls, value: Decimal) -> Decimal:
+        if value > Decimal('99999999.99'):
+            raise ValueError('分攤金額超過最大值 99,999,999.99')
+        return value
+
 class ExpenseCreate(ExpenseBase):
     '''建立Expense 時的輸入schema'''
-    pass
+    splits: List[ExpenseSplitCreateItem] = Field(..., min_length=1, description="分攤明細")
 
-class ExpenseUpdatetPUT(ExpenseBase):
+class ExpenseUpdatePUT(ExpenseBase):
     '''更新Expense 時的輸入schema'''
     # PUT請求需要提供完整的Expense資料進行替換
     pass
@@ -57,7 +70,7 @@ class ExpenseSplitSimple(BaseSchema):
     '''ExpenseSplit的簡化回應schema'''
     id: UUID
     user_id: UUID
-    amount: Decimal
+    split_amount: Decimal
     is_settled: bool
     settled_at: Optional[datetime] = None
 
