@@ -104,6 +104,12 @@ class ExpenseListResponse(BaseSchema):
     size: int
     pages: int
 
+
+class ExpenseListRequest(BaseSchema):
+    """Expense 列表查詢條件"""
+    page: int = Field(default=1, ge=1, description="頁碼")
+    size: int = Field(default=10, ge=1, description="每頁筆數")
+
 """ExpenseSplit相關的schema"""
 class ExpenseSplitBase(BaseSchema):
     """ExpenseSplit 的基礎欄位"""
