@@ -70,7 +70,7 @@ class ExpenseSplitSimple(BaseSchema):
     '''ExpenseSplit的簡化回應schema'''
     id: UUID
     user_id: UUID
-    amount: Decimal
+    split_amount: Decimal
     is_settled: bool
     settled_at: Optional[datetime] = None
 
