@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import select, func
 
 from app.models.expense import Expense, ExpenseSplit
 from app.models.group import Group, GroupMember
@@ -8,6 +9,8 @@ from app.models.user import User
 from app.schemas.expense import ExpenseCreate
 from app.services.expense_split_helper import calculate_split_amounts
 
+from uuid import UUID
+from typing import Tuple, Sequence, Optional
 
 def create_group_expense(db: Session, expense_in: ExpenseCreate) -> Expense:
     """建立一筆群組費用 並同步建立分攤明細"""
@@ -72,3 +75,36 @@ def create_group_expense(db: Session, expense_in: ExpenseCreate) -> Expense:
     except Exception:
         db.rollback()
         raise
+
+def get_group_expenses(db: Session, group_id: UUID, skip: int, limit: int) -> Tuple[int, Sequence[Expense]]:
+    """
+    取得群組的歷史帳單列表 (含分頁與關聯資料)
+    回傳: (總筆數, 帳單列表)
+    """
+
+    # 驗證群組存在
+    group = db.query(Group).filter(Group.id == group_id).first() 
+    if group is None:
+        raise ValueError("群組不存在")
+    
+    # 查詢總筆數
+    total_statements = select(func.count(Expense.id)).where(Expense.group_id == group_id)
+    total = db.scalar(total_statements)
+
+    # 取得分頁資料與關聯
+    statements = (
+        select(Expense)
+        .where(Expense.group_id == group_id)
+        .options(
+            selectinload(Expense.payer),
+            selectinload(Expense.group),
+            selectinload(Expense.splits)
+        )
+        .order_by(Expense.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    result = db.execute(statements)
+    expenses = result.scalars().all()
+    
+    return total, expenses

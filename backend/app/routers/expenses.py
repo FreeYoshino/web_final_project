@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.crud.expense import create_group_expense
 from app.db.database import get_db
 from app.schemas.expense import ExpenseCreate
+from app.services.expense import ExpenseService
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -73,5 +75,46 @@ def create_expense(
             "id": str(expense.id),
             "message": "Expense created successfully",
         }
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get("/{group_id}")
+def get_expense_list(
+    group_id: UUID,
+    page: int = Query(
+        1,
+        ge=1,
+        openapi_examples={
+            "default_list": {
+                "summary": "查詢群組費用列表",
+                "description": "使用 path 帶入 group_id，query 帶入 page、size 取得該群組的費用列表。",
+                "value": 1,
+            },
+        },
+    ),
+    size: int = Query(
+        10,
+        ge=1,
+        openapi_examples={
+            "default_list": {
+                "summary": "每頁筆數",
+                "description": "預設每頁 10 筆。",
+                "value": 10,
+            },
+        },
+    ),
+    db: Session = Depends(get_db),
+):
+    '''
+    取得群組費用列表
+    '''
+    try:
+        return ExpenseService.get_group_expense_list(
+            db=db,
+            group_id=group_id,
+            page=page,
+            size=size,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
