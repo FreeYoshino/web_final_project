@@ -5,6 +5,8 @@ from uuid import UUID
 from app.db.database import get_db
 from app.schemas.settlement import SettlementCreate
 
+from app.services.settlement import SettlementService
+
 router = APIRouter(prefix="/settlements", tags=["settlements"])
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -53,8 +55,12 @@ def create_settlement(
 
     try:
         # 呼叫 service 層來處理 settlement 的建立邏輯
-        # TODO: SettlementService.create_settlement(db, settlement_in)
-        pass
+        settlement = SettlementService.create_settlement(db, settlement_in)
+
+        return {
+            "id": str(settlement.id),
+            "message": "Settlement created successfully",
+        }
     except ValueError as exc:
         # 例如驗證失敗這類可預期的業務錯誤
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -64,6 +70,5 @@ def create_settlement(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
         ) from exc
-    pass
-    
+
 
