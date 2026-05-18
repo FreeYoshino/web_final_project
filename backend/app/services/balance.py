@@ -12,13 +12,15 @@ class BalanceService:
         # 從 CRUD 層獲取原始餘額資料
         raw_balances = crud_get_group_balances(db, group_id)
 
-        # 將 raw_balances 轉化為 Pydantic 模型
+        # 將 raw_balances 轉化為 Pydantic 模型 (回傳原始 totals 與 settlement 調整量)
         formatted_balances = []
         for balance in raw_balances:
             formatted_balance = {
                 "user_id": balance.user_id,
-                "total_paid": balance.paid,
-                "total_owed": balance.owed,
+                "total_paid_raw": balance.paid,
+                "total_owed_raw": balance.owed,
+                "settlements_paid": getattr(balance, 'paid_settlement', 0),
+                "settlements_received": getattr(balance, 'received_settlement', 0),
                 "balance": balance.net_balance,
             }
             formatted_balances.append(UserBalanceResponse(**formatted_balance))
