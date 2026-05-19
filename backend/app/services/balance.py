@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.crud.balance import get_group_balances as crud_get_group_balances
 from app.schemas.balance import UserBalanceResponse, GroupBalanceResponse 
+
+from app.services.simplification import simplify_debts
+
 class BalanceService:
     @staticmethod
     def get_group_balances(db: Session, group_id: UUID) -> GroupBalanceResponse:
@@ -26,5 +29,8 @@ class BalanceService:
             }
             formatted_balances.append(UserBalanceResponse(**formatted_balance))
 
-        return GroupBalanceResponse(group_id=group_id, balances=formatted_balances)
+        # 計算簡化後的交易建議
+        settlements = simplify_debts(formatted_balances)
+
+        return GroupBalanceResponse(group_id=group_id, balances=formatted_balances, settlements=settlements)
     
