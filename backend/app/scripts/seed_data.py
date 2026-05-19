@@ -66,6 +66,13 @@ def seed():
             name="測試用戶2",
             password_hash="hash",
         )
+        user3, created_user3 = get_or_create_user(
+            db,
+            username="user3",
+            email="u3@test.com",
+            name="測試用戶3",
+            password_hash="hash",
+        )
 
         new_group, created_group = get_or_create_group(
             db,
@@ -83,14 +90,21 @@ def seed():
             group_id=new_group.id,
             user_id=user2.id,
         )
+        member3, created_member3 = get_or_create_group_member(
+            db,
+            group_id=new_group.id,
+            user_id=user3.id,
+        )
 
         db.commit()
         print("✅ Seed 完成")
         print(f"User 1 ID: {user1.id} ({'new' if created_user1 else 'existing'})")
         print(f"User 2 ID: {user2.id} ({'new' if created_user2 else 'existing'})")
+        print(f"User 3 ID: {user3.id} ({'new' if created_user3 else 'existing'})")
         print(f"Group ID: {new_group.id} ({'new' if created_group else 'existing'})")
         print(f"Member 1 ID: {member1.id} ({'new' if created_member1 else 'existing'})")
         print(f"Member 2 ID: {member2.id} ({'new' if created_member2 else 'existing'})")
+        print(f"Member 3 ID: {member3.id} ({'new' if created_member3 else 'existing'})")
     except Exception:
         db.rollback()
         raise
