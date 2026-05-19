@@ -17,6 +17,7 @@ class BalanceService:
         for balance in raw_balances:
             formatted_balance = {
                 "user_id": balance.user_id,
+                "user_name": balance.user_name,
                 "total_paid_raw": balance.paid,
                 "total_owed_raw": balance.owed,
                 "settlements_paid": getattr(balance, 'paid_settlement', 0),

@@ -4,6 +4,7 @@ from sqlalchemy import func
 from app.models.group import Group, GroupMember
 from app.models.expense import Expense, ExpenseSplit
 from app.models.settlement import Settlement
+from app.models.user import User
 
 from uuid import UUID
 
@@ -70,6 +71,7 @@ def get_group_balances(db: Session, group_id: UUID):
     balances = (
         db.query(
             GroupMember.user_id,
+            User.name.label("user_name"),
             func.coalesce(paid_subquery.c.total_paid, 0).label("paid"),
             func.coalesce(owed_subquery.c.total_owed, 0).label("owed"),
             func.coalesce(paid_settlement_subquery.c.total_paid_settlement, 0).label("paid_settlement"),
@@ -80,6 +82,7 @@ def get_group_balances(db: Session, group_id: UUID):
              - func.coalesce(received_settlement_subquery.c.total_received_settlement, 0)).label("net_balance")
         )
         .filter(GroupMember.group_id == group_id)
+        .join(User, GroupMember.user_id == User.id)
         .outerjoin(paid_subquery, GroupMember.user_id == paid_subquery.c.user_id)
         .outerjoin(owed_subquery, GroupMember.user_id == owed_subquery.c.user_id)
         .outerjoin(paid_settlement_subquery, GroupMember.user_id == paid_settlement_subquery.c.user_id)
