@@ -1,33 +1,35 @@
-import { useState } from 'react';
-import { Calculator, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useState , useEffect} from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { Calculator, CheckCircle2, AlertCircle, FileText} from 'lucide-react';
 import { useGroupStore } from '../store/groupStore';
-// 假資料：模擬目前群組內的成員
-const MOCK_MEMBERS = [
-  { id: 1, name: 'A (你自己)' },
-  { id: 2, name: '室友 B' },
-  { id: 3, name: '室友 C' },
-];
+import { billAPI } from '../services/api';
+
+// const MOCK_MEMBERS = [];
 
 export default function NewBillPage() {
   // --- 狀態管理 (State) ---
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { activeGroupId, setActiveGroup, activePayerId, setActivePayer, groups, getActiveGroup } = useGroupStore();
-
   const currentGroup = getActiveGroup();
   const members = currentGroup?.members || [];
-
   const [totalAmount, setTotalAmount] = useState('');
   const [splitMode, setSplitMode] = useState('equal'); // 'equal' | 'exact'
-  
+  const [description, setDescription] = useState('');
   // 紀錄精確模式下，每個人的分攤金額。預設為 0
-  const [exactAmounts, setExactAmounts] = useState(
-    MOCK_MEMBERS.reduce((acc, member) => ({ ...acc, [member.id]: '' }), {})
-  );
-
+  const [exactAmounts, setExactAmounts] = useState({});
+  useEffect(() => {
+    if (members.length > 0) {
+      const initialAmounts = members.reduce((acc, member) => ({ ...acc, [member.id]: '' }), {});
+      setExactAmounts(initialAmounts);
+    }
+  }, [activeGroupId]);
   // --- 計算邏輯 ---
   const parsedTotal = parseFloat(totalAmount) || 0;
 
   // 1. 平分模式計算
-  const equalShare = parsedTotal > 0 ? (parsedTotal / MOCK_MEMBERS.length).toFixed(0) : 0;
+  const equalShare = parsedTotal > 0 ? (parsedTotal / members.length).toFixed(0) : 0;
 
   // 2. 精確模式防呆計算
   const currentExactSum = Object.values(exactAmounts).reduce(
@@ -39,6 +41,7 @@ export default function NewBillPage() {
   // 判斷表單是否可以送出
   const isSubmitDisabled = 
     parsedTotal <= 0 || 
+    !description.trim() || 
     (splitMode === 'exact' && diff !== 0);
 
   // --- 處理輸入變更 ---
@@ -49,10 +52,40 @@ export default function NewBillPage() {
     }));
   };
 
+  const createExpenseMutation = useMutation({
+    mutationFn: billAPI.createExpense,
+    onSuccess: () => {
+      alert('記帳成功！');
+      queryClient.invalidateQueries({ queryKey: ['groupExpenses'] });
+      queryClient.invalidateQueries({ queryKey: ['groupBalances'] });
+      navigate('/');
+    },
+    onError: (error) => {
+      alert('記帳失敗，請檢查網路或後端狀態：' + error.message);
+    }
+  });
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    alert(`送出成功！總額：${parsedTotal}，模式：${splitMode}`);
-    // 這裡之後會串接 React Query 和 FastAPI
+
+    const payload = {
+      description: description.trim(),
+      amount: parsedTotal,
+      paid_by_id: activePayerId,
+      group_id: activeGroupId,
+      category: "other", // 未來可擴充下拉選單
+      split_type: splitMode === 'equal' ? 'EQUAL' : 'EXACT',
+      
+      expense_date: new Date().toISOString(), 
+      
+      splits: members.map(member => ({
+        user_id: member.id,
+        split_amount: splitMode === 'exact' ? (parseFloat(exactAmounts[member.id]) || 0) : 0
+      }))
+    };
+
+    console.log("準備送出的 Payload:", payload); // 測試用，可按 F12 檢查格式對不對
+    createExpenseMutation.mutate(payload);
   };
 
   return (
@@ -95,7 +128,21 @@ export default function NewBillPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        
+        <div>
+          <label className="block text-sm font-medium text-gray-500 mb-1">項目名稱</label>
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+              <FileText size={20} />
+            </span>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="例如：晚餐、飲料、水電費"
+              className="w-full text-lg pl-12 pr-4 py-3 bg-gray-50 border-transparent rounded-xl focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+            />
+          </div>
+        </div>
         {/* 1. 總金額輸入 */}
         <div>
           <label className="block text-sm font-medium text-gray-500 mb-1">輸入總金額</label>
@@ -135,7 +182,7 @@ export default function NewBillPage() {
 
         {/* 3. 動態分攤清單 */}
         <div className="space-y-3">
-          {MOCK_MEMBERS.map((member) => (
+          {members.map((member) => (
             <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
               <span className="font-medium text-gray-700">{member.name}</span>
               

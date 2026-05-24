@@ -82,7 +82,7 @@ export default function GroupsPage() {
 
             {/* --- 群組列表 --- */}
             <div className="space-y-3">
-                {groups.map((group) => (
+                {(groups || []).map((group) => (
                     <button
                         key={group.id}
                         onClick={() => handleGroupClick(group)}
@@ -96,7 +96,7 @@ export default function GroupsPage() {
                             <div className="text-left">
                                 <h3 className="font-bold text-gray-800 text-lg">{group.name}</h3>
                                 <p className="text-sm text-gray-500 mt-0.5">
-                                    {group.members.length} 位成員
+                                    {(group.members || []).length} 位成員
                                 </p>
                             </div>
                         </div>
@@ -104,7 +104,7 @@ export default function GroupsPage() {
                     </button>
                 ))}
 
-                {groups.length === 0 && (
+                {(!groups || groups.length === 0) && (
                     <div className="text-center py-10 text-gray-400">
                         目前還沒有任何群組喔，趕快建立一個吧！
                     </div>
