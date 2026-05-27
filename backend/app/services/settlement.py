@@ -1,3 +1,6 @@
+import math
+from uuid import UUID
+
 from sqlalchemy.orm import Session
 
 from app.crud.settlement import SettlementCrud
@@ -5,7 +8,11 @@ from app.models.expense import Expense, ExpenseSplit
 from app.models.group import Group, GroupMember
 from app.models.settlement import Settlement
 from app.models.user import User
-from app.schemas.settlement import SettlementCreate
+from app.schemas.settlement import (
+    SettlementCreate,
+    SettlementListResponse,
+    SettlementResponse,
+)
 
 class SettlementService:
     @staticmethod
@@ -15,6 +22,54 @@ class SettlementService:
         """
         SettlementService._validate_settlement(db, settlement_in)
         return SettlementCrud.create_settlement(db, settlement_in)
+
+    @staticmethod
+    def get_group_settlement_list(
+        db: Session,
+        group_id: UUID,
+        page: int,
+        size: int,
+    ) -> SettlementListResponse:
+        """
+        處理商業邏輯: 計算分頁並組裝結算交易回傳結構
+        """
+        if page < 1:
+            raise ValueError("page must be greater than 0")
+        if size < 1:
+            raise ValueError("size must be greater than 0")
+
+        skip = (page - 1) * size
+        total, settlements_db = SettlementCrud.get_group_settlements(
+            db=db,
+            group_id=group_id,
+            skip=skip,
+            limit=size,
+        )
+
+        pages = math.ceil(total / size) if total > 0 else 0
+        settlements = []
+
+        for settlement in settlements_db:
+            settlement_response = SettlementResponse.model_validate(
+                {
+                    **settlement.__dict__,
+                    "payer_name": settlement.payer.username,
+                    "receiver_name": settlement.receiver.username,
+                    "group_name": settlement.group.name,
+                    "expense_description": (
+                        settlement.expense.description if settlement.expense else None
+                    ),
+                }
+            )
+            settlements.append(settlement_response)
+
+        return SettlementListResponse(
+            settlements=settlements,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages,
+        )
 
     @staticmethod
     def _validate_settlement(db: Session, settlement_in: SettlementCreate) -> None:
