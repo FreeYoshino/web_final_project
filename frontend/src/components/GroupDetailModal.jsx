@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { X, UserPlus, Receipt, HandCoins, ArrowRight, Clock } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { X, UserPlus, Receipt, HandCoins, ArrowRight, Clock, CheckCircle } from 'lucide-react';
 import { useGroupStore } from '../store/groupStore';
 import { groupAPI } from '../services/api';
 
 export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('members'); // 'members' | 'history' | 'settlement'
   const [newMemberName, setNewMemberName] = useState('');
   const [selectedExpense, setSelectedExpense] = useState(null);
+  const [settlementData, setSettlementData] = useState(null); // 只要有值，就會彈出還款視窗
+  const [settleMethod, setSettleMethod] = useState('cash');
+  const [settleNotes, setSettleNotes] = useState('');
   const { addMember } = useGroupStore();
 
   if (!group) return null;
@@ -26,12 +30,49 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
     queryFn: () => groupAPI.getGroupExpenses(group.id),
     enabled: activeTab === 'history' // 只有切換到歷史記錄才去抓資料
   });
-  // --- 1. 新增成員處理 ---
+  // 送出結算的 Mutation
+  const settlementMutation = useMutation({
+    mutationFn: groupAPI.createSettlement,
+    onSuccess: () => {
+      alert('還款成功！');
+      // 成功後強制重新整理歷史帳單與結算畫面
+      queryClient.invalidateQueries({ queryKey: ['groupBalances', group.id] });
+      queryClient.invalidateQueries({ queryKey: ['groupExpenses', group.id] });
+      setSettlementData(null);
+      setSettleNotes('');
+    },
+    onError: (error) => {
+      alert('還款失敗：' + (error.response?.data?.detail || error.message));
+    }
+  });
+  //新增成員處理
   const handleAddMember = (e) => {
     e.preventDefault();
     if (!newMemberName.trim()) return;
     addMember(group.id, newMemberName);
     setNewMemberName('');
+  };
+
+  const handleSettleSubmit = () => {
+    // 依照是否有 expense_id 來判斷是方法一還是方法二
+    const isSpecificExpense = !!settlementData.expense_id;
+
+    const payload = {
+      payer_id: settlementData.payer_id,
+      receiver_id: settlementData.receiver_id,
+      amount: settlementData.amount,
+      method: settleMethod,
+      group_id: group.id,
+      expense_id: settlementData.expense_id,
+
+      // 根據你的規格：單筆為 completed，總結算為 pending
+      status: isSpecificExpense ? 'completed' : 'pending',
+      notes: settleNotes.trim() || (isSpecificExpense ? '單筆還款' : '總額批次結算'),
+      transaction_date: new Date().toISOString()
+    };
+
+    console.log('準備送出的還款資料:', payload);
+    settlementMutation.mutate(payload);
   };
 
   return (
@@ -105,8 +146,8 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
                 <div className="text-center py-10 text-gray-400">載入歷史帳單中...</div>
               ) : expensesData?.items && expensesData.items.length > 0 ? (
                 expensesData.items.map(exp => (
-                  <button 
-                    key={exp.id} 
+                  <button
+                    key={exp.id}
                     onClick={() => setSelectedExpense(exp)}
                     className="w-full p-4 bg-white rounded-xl border border-gray-100 shadow-sm flex justify-between items-center hover:bg-gray-50 transition-colors active:scale-[0.98] text-left"
                   >
@@ -127,25 +168,35 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
             </div>
           )}
 
-          {/* 3. 結算分頁 */}
+          {/* 👉 方法二：總額結算 (批次) */}
           {activeTab === 'settlement' && (
             <div className="space-y-3">
               {isBalancesLoading ? (
                 <div className="text-center py-10 text-gray-400">計算中，請稍候...</div>
               ) : balanceData?.settlements?.length > 0 ? (
-                // 拿後端回傳的 settlements 陣列來 map
                 balanceData.settlements.map((tx, idx) => (
                   <div key={idx} className="flex items-center justify-between p-4 bg-white rounded-xl border border-gray-100 shadow-sm">
-                    <div className="flex items-center gap-2 flex-1">
-                      {/* 對應 API 回傳的欄位名稱 */}
-                      <span className="font-bold text-gray-700">{tx.from_user_name}</span>
-                      <ArrowRight size={16} className="text-gray-300 mx-1" />
-                      <span className="font-bold text-gray-700">{tx.to_user_name}</span>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-700">{tx.from_user_name}</span>
+                        <ArrowRight size={16} className="text-gray-300 mx-1" />
+                        <span className="font-bold text-gray-700">{tx.to_user_name}</span>
+                      </div>
+                      <span className="text-red-500 font-bold text-sm">需給付 ${Number(tx.amount).toFixed(0)}</span>
                     </div>
-                    <div className="bg-red-50 text-red-600 px-3 py-1 rounded-lg font-bold text-sm border border-red-100">
-                      {/* 將又臭又長的數字格式化為沒有小數點的整數 */}
-                      給 ${Number(tx.amount).toFixed(0)}
-                    </div>
+
+                    {/* 總額結算按鈕 */}
+                    <button
+                      onClick={() => setSettlementData({
+                        payer_id: tx.from_user_id, // ⚠️ 請確認後端有給 from_user_id
+                        receiver_id: tx.to_user_id, // ⚠️ 請確認後端有給 to_user_id
+                        amount: tx.amount,
+                        expense_id: null // 批次結算帶 null
+                      })}
+                      className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-bold text-sm transition-colors"
+                    >
+                      總結算
+                    </button>
                   </div>
                 ))
               ) : (
@@ -166,65 +217,115 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
         </div>
 
       </div>
-      {/* 👉 4. 單筆帳單詳細視窗 (疊在原本的 Modal 上面) */}
+      {/* --- 單筆帳單詳細視窗 --- */}
       {selectedExpense && (
         <div className="fixed inset-0 bg-black/60 z-[110] flex justify-center items-center p-4 animate-in fade-in">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl animate-in zoom-in-95">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-xl font-bold text-gray-800">{selectedExpense.description}</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {new Date(selectedExpense.created_at).toLocaleString()}
-                </p>
+                <p className="text-sm text-gray-500 mt-1">{new Date(selectedExpense.created_at).toLocaleString()}</p>
               </div>
-              <button onClick={() => setSelectedExpense(null)} className="text-gray-400 hover:bg-gray-100 p-1 rounded-full">
-                <X size={20} />
-              </button>
+              <button onClick={() => setSelectedExpense(null)} className="text-gray-400 hover:bg-gray-100 p-1 rounded-full"><X size={20} /></button>
             </div>
-            
+
             <div className="py-4 border-y border-gray-100 my-4 flex justify-between items-center">
               <span className="text-gray-600 font-medium">總金額</span>
               <span className="text-2xl font-bold text-blue-600">${Number(selectedExpense.amount).toFixed(0)}</span>
             </div>
 
-            <div className="mb-6 text-sm text-gray-600">
-              <span className="font-bold text-gray-800">
-                {selectedExpense.payer_name || selectedExpense.paid_by_id}
-              </span> 先行代墊了這筆款項。
-            </div>
-
-            {selectedExpense.splits && selectedExpense.splits.length > 0 ? (
+            {selectedExpense.splits && selectedExpense.splits.length > 0 && (
               <div className="space-y-2 mb-6 bg-gray-50 p-4 rounded-xl">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase">分攤詳情</h4>
-                  <span className="text-xs font-bold text-blue-500 bg-blue-50 px-2 py-1 rounded-md">
-                    {selectedExpense.split_type === 'EQUAL' ? '平分' : '精確'}
-                  </span>
-                </div>
+                <h4 className="text-xs font-bold text-gray-400 uppercase mb-3">分攤詳情</h4>
                 {selectedExpense.splits.map((split, idx) => {
-                  // 👉 利用 group.members 來把 UUID 轉換成真實名字
                   const memberName = group.members.find(m => m.id === split.user_id)?.name || "未知成員";
-                  
+                  const isPayer = split.user_id === selectedExpense.paid_by_id;
+
                   return (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span className="text-gray-700">{memberName}</span>
-                      <span className="font-medium text-gray-900">${Number(split.split_amount).toFixed(0)}</span>
+                    <div key={idx} className="flex justify-between items-center text-sm py-1 border-b border-gray-200/50 last:border-0">
+                      <span className="text-gray-700">{memberName} {isPayer && "(代墊)"}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium text-gray-900">${Number(split.split_amount).toFixed(0)}</span>
+
+                        {/* 👉 方法一：單筆結清按鈕 (不是代墊人且還沒結清才顯示) */}
+                        {!isPayer && !split.is_settled ? (
+                          <button
+                            onClick={() => setSettlementData({
+                              payer_id: split.user_id,
+                              receiver_id: selectedExpense.paid_by_id,
+                              amount: split.split_amount,
+                              expense_id: selectedExpense.id // 單筆結算帶入 expense_id
+                            })}
+                            className="bg-blue-600 text-white text-xs px-2 py-1 rounded"
+                          >
+                            還款
+                          </button>
+                        ) : !isPayer && split.is_settled ? (
+                          <span className="text-green-500 flex items-center gap-1 text-xs"><CheckCircle size={12} /> 已還清</span>
+                        ) : null}
+                      </div>
                     </div>
                   );
                 })}
               </div>
-            ) : (
-              <div className="text-center text-sm text-gray-400 mb-6 bg-gray-50 p-4 rounded-xl">
-                此 API 未包含詳細分攤名單 (Splits)
-              </div>
             )}
+            <button onClick={() => setSelectedExpense(null)} className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold">關閉</button>
+          </div>
+        </div>
+      )}
 
-            <button 
-              onClick={() => setSelectedExpense(null)}
-              className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-gray-800 transition-colors"
-            >
-              關閉
-            </button>
+      {/* 👉 3. 還款確認表單視窗 (共用) */}
+      {settlementData && (
+        <div className="fixed inset-0 bg-black/70 z-[120] flex justify-center items-center p-4">
+          <div className="bg-white w-full max-w-xs rounded-2xl p-6 shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">確認還款資訊</h3>
+            
+            <div className="mb-4 text-center p-4 bg-gray-50 rounded-xl">
+              <p className="text-sm text-gray-500 mb-1">本次結算金額</p>
+              <p className="text-3xl font-bold text-red-500">${Number(settlementData.amount).toFixed(0)}</p>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">還款方式</label>
+                <select 
+                  value={settleMethod} 
+                  onChange={(e) => setSettleMethod(e.target.value)}
+                  className="w-full p-2 border border-gray-200 rounded-lg outline-none"
+                >
+                  <option value="cash">現金 (Cash)</option>
+                  <option value="bank_transfer">轉帳 (Bank Transfer)</option>
+                  <option value="credit_card">信用卡</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">備註說明 (選填)</label>
+                <input 
+                  type="text" 
+                  value={settleNotes}
+                  onChange={(e) => setSettleNotes(e.target.value)}
+                  placeholder={settlementData.expense_id ? "例如：還昨天的午餐錢" : "例如：五月份總結算"}
+                  className="w-full p-2 border border-gray-200 rounded-lg outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setSettlementData(null)}
+                className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold"
+              >
+                取消
+              </button>
+              <button 
+                onClick={handleSettleSubmit}
+                disabled={settlementMutation.isPending}
+                className="flex-1 py-2 bg-blue-600 text-white rounded-xl font-bold disabled:bg-blue-300"
+              >
+                {settlementMutation.isPending ? '處理中...' : '確認結清'}
+              </button>
+            </div>
           </div>
         </div>
       )}

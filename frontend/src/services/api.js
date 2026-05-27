@@ -19,6 +19,27 @@ export const groupAPI = {
   getGroupExpenses: async (groupId) => {
     const response = await api.get(`/expenses/${groupId}`);
     return response.data;
+  },
+
+  createSettlement: async (settlementData) => {
+    // ⚠️ 請與後端確認這支 API 的正確網址路徑 (例如可能是 /transactions 或 /settlements)
+    const response = await api.post('/settlements', settlementData);
+    return response.data;
+  }
+};
+
+export const authAPI = {
+  // 1. 註冊 (依照你組員提供的格式)
+  register: async (userData) => {
+    const response = await api.post('/users', userData); // 請和組員確認正確的 URL 路徑
+    return response.data;
+  },
+  
+  // 2. 登入 (先預留位置)
+  login: async (credentials) => {
+    // 通常登入是 POST /users/login 或是 /token
+    const response = await api.post('/users/login', credentials); 
+    return response.data;
   }
 };
 
