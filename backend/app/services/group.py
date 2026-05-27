@@ -69,3 +69,16 @@ class GroupService:
         member_responses = [GroupMemberResponse.model_validate(member) for member in members]
 
         return GroupMemberListResponse(group_id=group_id, members=member_responses)
+
+    @staticmethod
+    def get_group_members(db: Session, group_id: UUID) -> GroupMemberListResponse:
+        """取得群組成員清單的商業邏輯處理"""
+
+        group = db.scalar(select(Group).where(Group.id == group_id))
+        if group is None:
+            raise ValueError("群組不存在")
+
+        members = GroupCrud.get_group_members(db, group_id)
+        member_responses = [GroupMemberResponse.model_validate(member) for member in members]
+
+        return GroupMemberListResponse(group_id=group_id, members=member_responses)

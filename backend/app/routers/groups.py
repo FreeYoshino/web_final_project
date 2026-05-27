@@ -66,3 +66,14 @@ def add_members_to_group(
         return GroupService.add_members_to_group(db, group_id, members_in)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    
+@router.get("/{group_id}/members", status_code=status.HTTP_200_OK, response_model=GroupMemberListResponse)
+def get_group_members(
+    group_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """取得群組成員清單"""
+    try:
+        return GroupService.get_group_members(db, group_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc

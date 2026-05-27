@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -56,3 +57,10 @@ class GroupCrud:
         except SQLAlchemyError:
             db.rollback()
             raise
+
+    @staticmethod
+    def get_group_members(db: Session, group_id: UUID) -> list[GroupMember]:
+        """取得群組成員列表"""
+        return db.scalars(
+            select(GroupMember).where(GroupMember.group_id == group_id)
+        ).all()
