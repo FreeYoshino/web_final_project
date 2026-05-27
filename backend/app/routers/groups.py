@@ -63,7 +63,6 @@ def add_members_to_group(
 ):
     """加入成員到群組"""
     try:
-        # return GroupService.add_members_to_group(db, group_id, members_in)
-        pass
+        return GroupService.add_members_to_group(db, group_id, members_in)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
