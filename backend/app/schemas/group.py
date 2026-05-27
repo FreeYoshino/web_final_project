@@ -43,6 +43,9 @@ class GroupCreate(GroupBase):
     """建立 Group 時的輸入 schema"""
     pass
 
+class GroupResponse(GroupBase, IDSchema, TimestampSchema):
+    """Group 的回應 schema"""
+    pass
 
 class GroupMemberBase(BaseSchema):
     """GroupMember 的共用欄位"""

@@ -3,9 +3,10 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.services.balance import BalanceService
+from app.services.group import GroupService
 from app.db.database import get_db
 from app.schemas.balance import GroupBalanceResponse
-from app.schemas.group import GroupCreate
+from app.schemas.group import GroupCreate, GroupResponse
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
@@ -43,14 +44,13 @@ def get_group_balances(
             detail="Internal server error",
         ) from exc
 
-@router.post("", status_code = status.HTTP_201_CREATED, response_model = GroupCreate)
+@router.post("", status_code = status.HTTP_201_CREATED, response_model = GroupResponse)
 def create_group(
     group_in: GroupCreate,
     db: Session = Depends(get_db),
 ):
     """建立群組"""
     try:
-        # TODO: GroupService.create_group(db, group_in)
-        pass
+        return GroupService.create_group(db, group_in)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
