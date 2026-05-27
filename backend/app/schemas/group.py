@@ -13,6 +13,7 @@ GroupMemberRole = Literal["admin", "member"]
 class GroupBase(BaseSchema):
     """Group 的基礎欄位定義"""
 
+    creator_id: UUID = Field(..., description="群組建立者 ID")
     name: str = Field(..., min_length=1, max_length=100, description="群組名稱")
     description: Optional[str] = Field(None, max_length=255, description="群組描述")
     avatar_url: Optional[str] = Field(None, max_length=500, description="群組頭像網址")
@@ -40,14 +41,7 @@ class GroupBase(BaseSchema):
 
 class GroupCreate(GroupBase):
     """建立 Group 時的輸入 schema"""
-
     pass
-
-
-class GroupResponse(GroupBase, TimestampSchema, IDSchema):
-    """Group 的回應 schema"""
-
-    creator_id: UUID = Field(..., description="群組建立者 ID")
 
 
 class GroupMemberBase(BaseSchema):
