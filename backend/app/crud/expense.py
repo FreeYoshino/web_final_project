@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import select, func
+from sqlalchemy import select, func, exists
 
 from app.models.expense import Expense, ExpenseSplit
 from app.models.group import Group, GroupMember
@@ -60,11 +62,14 @@ def create_group_expense(db: Session, expense_in: ExpenseCreate) -> Expense:
 
         split_records = []
         for split_in, split_amount in zip(expense_in.splits, split_amounts):
+            is_payer_split = split_in.user_id == expense_in.paid_by_id
             split_records.append(
                 ExpenseSplit(
                     expense_id=new_expense.id,
                     user_id=split_in.user_id,
                     split_amount=split_amount,
+                    is_settled=is_payer_split,
+                    settled_at=datetime.now(timezone.utc) if is_payer_split else None,
                 )
             )
 
@@ -88,13 +93,23 @@ def get_group_expenses(db: Session, group_id: UUID, skip: int, limit: int) -> Tu
         raise ValueError("群組不存在")
     
     # 查詢總筆數
-    total_statements = select(func.count(Expense.id)).where(Expense.group_id == group_id)
+    pending_split_exists = exists().where(
+        ExpenseSplit.expense_id == Expense.id,
+        ExpenseSplit.is_settled.is_(False),
+    )
+    total_statements = select(func.count(Expense.id)).where(
+        Expense.group_id == group_id,
+        pending_split_exists,
+    )
     total = db.scalar(total_statements)
 
     # 取得分頁資料與關聯
     statements = (
         select(Expense)
-        .where(Expense.group_id == group_id)
+        .where(
+            Expense.group_id == group_id,
+            pending_split_exists,
+        )
         .options(
             selectinload(Expense.payer),
             selectinload(Expense.group),

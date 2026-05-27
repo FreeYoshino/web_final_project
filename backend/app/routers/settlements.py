@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.db.database import get_db
-from app.schemas.settlement import SettlementCreate
+from app.schemas.settlement import SettlementCreate, SettlementListResponse
 
 from app.services.settlement import SettlementService
 
@@ -70,5 +70,46 @@ def create_settlement(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
         ) from exc
+
+
+@router.get("/{group_id}", response_model=SettlementListResponse)
+def get_settlement_list(
+    group_id: UUID,
+    page: int = Query(
+        1,
+        ge=1,
+        openapi_examples={
+            "default_list": {
+                "summary": "查詢群組結算列表",
+                "description": "使用 path 帶入 group_id，query 帶入 page、size 取得該群組的結算交易列表。",
+                "value": 1,
+            },
+        },
+    ),
+    size: int = Query(
+        10,
+        ge=1,
+        openapi_examples={
+            "default_list": {
+                "summary": "每頁筆數",
+                "description": "預設每頁 10 筆。",
+                "value": 10,
+            },
+        },
+    ),
+    db: Session = Depends(get_db),
+):
+    '''
+    取得群組結算列表
+    '''
+    try:
+        return SettlementService.get_group_settlement_list(
+            db=db,
+            group_id=group_id,
+            page=page,
+            size=size,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
