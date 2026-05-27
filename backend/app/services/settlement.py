@@ -1,6 +1,7 @@
 import math
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.crud.settlement import SettlementCrud
@@ -77,55 +78,65 @@ class SettlementService:
         if settlement_in.payer_id == settlement_in.receiver_id:
             raise ValueError("付款人與收款人不能是同一人")
 
-        payer = db.query(User).filter(User.id == settlement_in.payer_id).first()
+        payer = db.scalar(select(User).where(User.id == settlement_in.payer_id))
         if payer is None:
             raise ValueError("付款人不存在")
 
-        receiver = db.query(User).filter(User.id == settlement_in.receiver_id).first()
+        receiver = db.scalar(select(User).where(User.id == settlement_in.receiver_id))
         if receiver is None:
             raise ValueError("收款人不存在")
 
-        group = db.query(Group).filter(Group.id == settlement_in.group_id).first()
+        group = db.scalar(select(Group).where(Group.id == settlement_in.group_id))
         if group is None:
             raise ValueError("群組不存在")
 
-        payer_in_group = db.query(GroupMember).filter(
-            GroupMember.group_id == settlement_in.group_id,
-            GroupMember.user_id == settlement_in.payer_id,
-        ).first()
+        payer_in_group = db.scalar(
+            select(GroupMember).where(
+                GroupMember.group_id == settlement_in.group_id,
+                GroupMember.user_id == settlement_in.payer_id,
+            )
+        )
         if payer_in_group is None:
             raise ValueError("付款人不是群組成員")
 
-        receiver_in_group = db.query(GroupMember).filter(
-            GroupMember.group_id == settlement_in.group_id,
-            GroupMember.user_id == settlement_in.receiver_id,
-        ).first()
+        receiver_in_group = db.scalar(
+            select(GroupMember).where(
+                GroupMember.group_id == settlement_in.group_id,
+                GroupMember.user_id == settlement_in.receiver_id,
+            )
+        )
         if receiver_in_group is None:
             raise ValueError("收款人不是群組成員")
 
         if settlement_in.expense_id is not None:
-            expense = db.query(Expense).filter(Expense.id == settlement_in.expense_id).first()
+            expense = db.scalar(select(Expense).where(Expense.id == settlement_in.expense_id))
             if expense is None:
                 raise ValueError("相關費用不存在")
             if expense.group_id != settlement_in.group_id:
                 raise ValueError("相關費用不屬於此群組")
 
-            payer_split = db.query(ExpenseSplit).filter(
-                ExpenseSplit.expense_id == settlement_in.expense_id,
-                ExpenseSplit.user_id == settlement_in.payer_id,
-                ExpenseSplit.is_settled.is_(False),
-            ).first()
+            payer_split = db.scalar(
+                select(ExpenseSplit).where(
+                    ExpenseSplit.expense_id == settlement_in.expense_id,
+                    ExpenseSplit.user_id == settlement_in.payer_id,
+                    ExpenseSplit.is_settled.is_(False),
+                )
+            )
             if payer_split is None:
                 raise ValueError("付款人在該費用中沒有可結清的分攤明細")
 
         else:
-            pending_split = db.query(ExpenseSplit).join(
-                Expense,
-                Expense.id == ExpenseSplit.expense_id,
-            ).filter(
-                Expense.group_id == settlement_in.group_id,
-                ExpenseSplit.user_id == settlement_in.payer_id,
-                ExpenseSplit.is_settled.is_(False),
-            ).first()
+            pending_split = db.scalar(
+                select(ExpenseSplit)
+                .join(
+                    Expense,
+                    Expense.id == ExpenseSplit.expense_id,
+                )
+                .where(
+                    Expense.group_id == settlement_in.group_id,
+                    ExpenseSplit.user_id == settlement_in.payer_id,
+                    ExpenseSplit.is_settled.is_(False),
+                )
+            )
             if pending_split is None:
                 raise ValueError("付款人沒有可結清的分攤明細")

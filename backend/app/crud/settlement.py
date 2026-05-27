@@ -33,19 +33,25 @@ class SettlementCrud:
         """將結算對應的 expense split 標記為已結清"""
 
         if settlement_in.expense_id is not None:
-            splits = db.query(ExpenseSplit).filter(
-                ExpenseSplit.expense_id == settlement_in.expense_id,
-                ExpenseSplit.user_id == settlement_in.payer_id,
-                ExpenseSplit.is_settled.is_(False),
+            splits = db.scalars(
+                select(ExpenseSplit).where(
+                    ExpenseSplit.expense_id == settlement_in.expense_id,
+                    ExpenseSplit.user_id == settlement_in.payer_id,
+                    ExpenseSplit.is_settled.is_(False),
+                )
             ).all()
         else:
-            splits = db.query(ExpenseSplit).join(
-                Expense,
-                Expense.id == ExpenseSplit.expense_id,
-            ).filter(
-                Expense.group_id == settlement_in.group_id,
-                ExpenseSplit.user_id == settlement_in.payer_id,
-                ExpenseSplit.is_settled.is_(False),
+            splits = db.scalars(
+                select(ExpenseSplit)
+                .join(
+                    Expense,
+                    Expense.id == ExpenseSplit.expense_id,
+                )
+                .where(
+                    Expense.group_id == settlement_in.group_id,
+                    ExpenseSplit.user_id == settlement_in.payer_id,
+                    ExpenseSplit.is_settled.is_(False),
+                )
             ).all()
 
         for split in splits:
@@ -61,7 +67,7 @@ class SettlementCrud:
     ) -> Tuple[int, Sequence[Settlement]]:
         """取得群組的結算交易列表 (含分頁與關聯資料)"""
 
-        group = db.query(Group).filter(Group.id == group_id).first()
+        group = db.scalar(select(Group).where(Group.id == group_id))
         if group is None:
             raise ValueError("群組不存在")
 
