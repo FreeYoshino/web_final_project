@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import select, func
+from sqlalchemy import select, func, exists
 
 from app.models.expense import Expense, ExpenseSplit
 from app.models.group import Group, GroupMember
@@ -88,13 +88,23 @@ def get_group_expenses(db: Session, group_id: UUID, skip: int, limit: int) -> Tu
         raise ValueError("群組不存在")
     
     # 查詢總筆數
-    total_statements = select(func.count(Expense.id)).where(Expense.group_id == group_id)
+    pending_split_exists = exists().where(
+        ExpenseSplit.expense_id == Expense.id,
+        ExpenseSplit.is_settled.is_(False),
+    )
+    total_statements = select(func.count(Expense.id)).where(
+        Expense.group_id == group_id,
+        pending_split_exists,
+    )
     total = db.scalar(total_statements)
 
     # 取得分頁資料與關聯
     statements = (
         select(Expense)
-        .where(Expense.group_id == group_id)
+        .where(
+            Expense.group_id == group_id,
+            pending_split_exists,
+        )
         .options(
             selectinload(Expense.payer),
             selectinload(Expense.group),

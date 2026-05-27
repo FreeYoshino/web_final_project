@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.crud.settlement import SettlementCrud
-from app.models.expense import Expense
+from app.models.expense import Expense, ExpenseSplit
 from app.models.group import Group, GroupMember
 from app.models.settlement import Settlement
 from app.models.user import User
@@ -54,3 +54,23 @@ class SettlementService:
                 raise ValueError("相關費用不存在")
             if expense.group_id != settlement_in.group_id:
                 raise ValueError("相關費用不屬於此群組")
+
+            payer_split = db.query(ExpenseSplit).filter(
+                ExpenseSplit.expense_id == settlement_in.expense_id,
+                ExpenseSplit.user_id == settlement_in.payer_id,
+                ExpenseSplit.is_settled.is_(False),
+            ).first()
+            if payer_split is None:
+                raise ValueError("付款人在該費用中沒有可結清的分攤明細")
+
+        else:
+            pending_split = db.query(ExpenseSplit).join(
+                Expense,
+                Expense.id == ExpenseSplit.expense_id,
+            ).filter(
+                Expense.group_id == settlement_in.group_id,
+                ExpenseSplit.user_id == settlement_in.payer_id,
+                ExpenseSplit.is_settled.is_(False),
+            ).first()
+            if pending_split is None:
+                raise ValueError("付款人沒有可結清的分攤明細")
