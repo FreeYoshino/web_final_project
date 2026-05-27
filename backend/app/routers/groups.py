@@ -6,7 +6,7 @@ from app.services.balance import BalanceService
 from app.services.group import GroupService
 from app.db.database import get_db
 from app.schemas.balance import GroupBalanceResponse
-from app.schemas.group import GroupCreate, GroupResponse
+from app.schemas.group import GroupCreate, GroupResponse, GroupMembersCreate, GroupMemberListResponse
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
@@ -52,5 +52,18 @@ def create_group(
     """建立群組"""
     try:
         return GroupService.create_group(db, group_in)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+@router.post("/{group_id}/members", status_code=status.HTTP_201_CREATED, response_model=GroupMemberListResponse)
+def add_members_to_group(
+    group_id: UUID,
+    members_in: GroupMembersCreate,
+    db: Session = Depends(get_db),
+):
+    """加入成員到群組"""
+    try:
+        # return GroupService.add_members_to_group(db, group_id, members_in)
+        pass
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

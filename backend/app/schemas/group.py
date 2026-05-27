@@ -52,18 +52,10 @@ class GroupMemberBase(BaseSchema):
 
     role: GroupMemberRole = Field(default="member", description="群組成員角色")
 
-
-class GroupMemberCreate(GroupMemberBase):
-    """加入單一成員到群組的輸入 schema"""
-
-    user_id: UUID = Field(..., description="要加入群組的使用者 ID")
-
-
-class GroupMembersCreate(BaseSchema):
+class GroupMembersCreate(GroupMemberBase):
     """批次加入多位成員到群組的輸入 schema"""
 
     user_ids: List[UUID] = Field(..., min_length=1, description="要加入群組的使用者 ID 清單")
-
 
 class GroupMemberResponse(GroupMemberBase, IDSchema):
     """GroupMember 的回應 schema"""
@@ -71,8 +63,6 @@ class GroupMemberResponse(GroupMemberBase, IDSchema):
     group_id: UUID = Field(..., description="群組 ID")
     user_id: UUID = Field(..., description="使用者 ID")
     joined_at: datetime = Field(..., description="加入時間")
-    user: UserResponse = Field(..., description="成員的使用者資訊")
-
 
 class GroupMemberListResponse(BaseSchema):
     """群組成員清單回應 schema"""
