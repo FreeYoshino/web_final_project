@@ -44,34 +44,17 @@ class ExpenseService:
                 (split.split_amount for split in expense.splits if not split.is_settled),
                 Decimal("0.00"),
             )
-            
-            items.append(
-                ExpenseResponse(
-                    id=expense.id,
-                    description=expense.description,
-                    amount=expense.amount,
-                    paid_by_id=expense.paid_by_id,
-                    group_id=expense.group_id,
-                    category=expense.category,
-                    split_type=expense.split_type,
-                    expense_date=expense.expense_date,
-                    created_at=expense.created_at,
-                    updated_at=expense.updated_at,
-                    payer_name=expense.payer.username,
-                    group_name=expense.group.name,
-                    settled_amount=settled_amount,
-                    pending_amount=pending_amount,
-                    splits=[
-                        ExpenseSplitSimple(
-                            id=split.id,
-                            user_id=split.user_id,
-                            split_amount=split.split_amount,
-                            is_settled=split.is_settled,
-                            settled_at=split.settled_at,
-                        ) for split in expense.splits
-                    ]
-                )
+
+            expense_response = ExpenseResponse.model_validate(
+                {
+                    **expense.__dict__,
+                    "payer_name": expense.payer.username,
+                    "group_name": expense.group.name,
+                    "settled_amount": settled_amount,
+                    "pending_amount": pending_amount,
+                }
             )
+            items.append(expense_response)
 
         return ExpenseListResponse(
             items=items, total=total, page=page, size=size, pages=pages
