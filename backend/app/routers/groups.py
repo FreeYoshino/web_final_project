@@ -3,8 +3,10 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.services.balance import BalanceService
+from app.services.group import GroupService
 from app.db.database import get_db
 from app.schemas.balance import GroupBalanceResponse
+from app.schemas.group import GroupCreate, GroupResponse, GroupMembersCreate, GroupMemberListResponse
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
@@ -41,4 +43,37 @@ def get_group_balances(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
         ) from exc
+
+@router.post("", status_code = status.HTTP_201_CREATED, response_model = GroupResponse)
+def create_group(
+    group_in: GroupCreate,
+    db: Session = Depends(get_db),
+):
+    """建立群組"""
+    try:
+        return GroupService.create_group(db, group_in)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+@router.post("/{group_id}/members", status_code=status.HTTP_201_CREATED, response_model=GroupMemberListResponse)
+def add_members_to_group(
+    group_id: UUID,
+    members_in: GroupMembersCreate,
+    db: Session = Depends(get_db),
+):
+    """加入成員到群組"""
+    try:
+        return GroupService.add_members_to_group(db, group_id, members_in)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     
+@router.get("/{group_id}/members", status_code=status.HTTP_200_OK, response_model=GroupMemberListResponse)
+def get_group_members(
+    group_id: UUID,
+    db: Session = Depends(get_db),
+):
+    """取得群組成員清單"""
+    try:
+        return GroupService.get_group_members(db, group_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
