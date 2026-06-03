@@ -9,10 +9,10 @@ from app.schemas.group import GroupCreate
 
 class GroupCrud:
     @staticmethod
-    def create_group(db: Session, group_in: GroupCreate) -> Group:
+    def create_group(db: Session, group_in: GroupCreate, creator_id: UUID) -> Group:
         """建立群組與建立者的 admin 成員關係"""
 
-        new_group = Group(**group_in.model_dump())
+        new_group = Group(**group_in.model_dump(), creator_id=creator_id)
 
         try:
             db.add(new_group)
@@ -21,7 +21,7 @@ class GroupCrud:
             db.add(
                 GroupMember(
                     group_id=new_group.id,
-                    user_id=group_in.creator_id,
+                    user_id=creator_id,
                     role="admin",
                 )
             )
