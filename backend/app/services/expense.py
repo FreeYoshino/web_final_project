@@ -1,35 +1,60 @@
 import math
 from decimal import Decimal
 from uuid import UUID
+
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.crud.expense import create_group_expense as create_group_expense_crud
 from app.crud.expense import get_group_expenses
-from app.schemas.expense import ExpenseListResponse, ExpenseResponse, ExpenseSplitSimple
+from app.schemas.expense import ExpenseListResponse, ExpenseResponse
+
 
 class ExpenseService:
     @staticmethod
+    def create_group_expense(db: Session, expense_in):
+        """建立群組費用並將業務錯誤轉成 HTTPException"""
+
+        try:
+            return create_group_expense_crud(db=db, expense_in=expense_in)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
+    @staticmethod
     def get_group_expense_list(
-        db: Session, 
-        group_id: UUID, 
-        page: int, 
-        size: int
+        db: Session, group_id: UUID, page: int, size: int
     ) -> ExpenseListResponse:
         """
         處理商業邏輯: 計算分頁、計算結算金額、並組裝回傳結構
         """
         if page < 1:
-            raise ValueError("page must be greater than 0")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="page must be greater than 0",
+            )
         if size < 1:
-            raise ValueError("size must be greater than 0")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="size must be greater than 0",
+            )
 
         # 計算資料庫 offset
         skip = (page - 1) * size
-        
-        # 呼叫 CRUD 拿資料
-        total, expenses_db = get_group_expenses(
-            db=db, group_id=group_id, skip=skip, limit=size
-        )
-        
+
+        try:
+            # 呼叫 CRUD 拿資料
+            total, expenses_db = get_group_expenses(
+                db=db, group_id=group_id, skip=skip, limit=size
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
         # 計算總頁數
         pages = math.ceil(total / size) if total > 0 else 0
         items = []
@@ -41,7 +66,11 @@ class ExpenseService:
                 Decimal("0.00"),
             )
             pending_amount = sum(
-                (split.split_amount for split in expense.splits if not split.is_settled),
+                (
+                    split.split_amount
+                    for split in expense.splits
+                    if not split.is_settled
+                ),
                 Decimal("0.00"),
             )
 

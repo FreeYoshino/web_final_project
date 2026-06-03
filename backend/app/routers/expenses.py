@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, Query, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
-from app.crud.expense import create_group_expense
 from app.db.database import get_db
 from app.schemas.expense import ExpenseCreate
 from app.services.expense import ExpenseService
@@ -66,17 +65,14 @@ def create_expense(
     ),
     db: Session = Depends(get_db),
 ):
-    '''
+    """
     建立群組費用
-    '''
-    try:
-        expense = create_group_expense(db=db, expense_in=expense_in)
-        return {
-            "id": str(expense.id),
-            "message": "Expense created successfully",
-        }
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    """
+    expense = ExpenseService.create_group_expense(db=db, expense_in=expense_in)
+    return {
+        "id": str(expense.id),
+        "message": "Expense created successfully",
+    }
 
 
 @router.get("/{group_id}")
@@ -106,15 +102,12 @@ def get_expense_list(
     ),
     db: Session = Depends(get_db),
 ):
-    '''
+    """
     取得群組費用列表
-    '''
-    try:
-        return ExpenseService.get_group_expense_list(
-            db=db,
-            group_id=group_id,
-            page=page,
-            size=size,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    """
+    return ExpenseService.get_group_expense_list(
+        db=db,
+        group_id=group_id,
+        page=page,
+        size=size,
+    )
