@@ -104,6 +104,7 @@ def get_expense_list(
         },
     ),
     db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """
     取得群組費用列表
@@ -113,4 +114,5 @@ def get_expense_list(
         group_id=group_id,
         page=page,
         size=size,
+        current_user_id=current_user_id,
     )
