@@ -7,6 +7,7 @@ from app.models.settlement import Settlement
 from app.models.user import User
 from uuid import UUID
 
+
 def get_group_balances(db: Session, group_id: UUID):
     """
     (版本2: 添加settlement的邏輯)
@@ -14,11 +15,6 @@ def get_group_balances(db: Session, group_id: UUID):
     公式: net_balance = paid - owed + paid_settlements - received_settlements
     回傳: List[Dict] 每個成員的帳務結算餘額
     """
-
-    # 驗證輸入資料的合理性
-    group = db.scalar(select(Group).where(Group.id == group_id))
-    if group is None:
-        raise ValueError("群組不存在")
 
     # 子查詢: 計算群組內成員的總代墊金額
     paid_subquery = (
@@ -79,19 +75,33 @@ def get_group_balances(db: Session, group_id: UUID):
             User.name.label("user_name"),
             func.coalesce(paid_subquery.c.total_paid, 0).label("paid"),
             func.coalesce(owed_subquery.c.total_owed, 0).label("owed"),
-            func.coalesce(paid_settlement_subquery.c.total_paid_settlement, 0).label("paid_settlement"),
-            func.coalesce(received_settlement_subquery.c.total_received_settlement, 0).label("received_settlement"),
-            (func.coalesce(paid_subquery.c.total_paid, 0) 
-             - func.coalesce(owed_subquery.c.total_owed, 0)
-             + func.coalesce(paid_settlement_subquery.c.total_paid_settlement, 0)
-             - func.coalesce(received_settlement_subquery.c.total_received_settlement, 0)).label("net_balance")
+            func.coalesce(paid_settlement_subquery.c.total_paid_settlement, 0).label(
+                "paid_settlement"
+            ),
+            func.coalesce(
+                received_settlement_subquery.c.total_received_settlement, 0
+            ).label("received_settlement"),
+            (
+                func.coalesce(paid_subquery.c.total_paid, 0)
+                - func.coalesce(owed_subquery.c.total_owed, 0)
+                + func.coalesce(paid_settlement_subquery.c.total_paid_settlement, 0)
+                - func.coalesce(
+                    received_settlement_subquery.c.total_received_settlement, 0
+                )
+            ).label("net_balance"),
         )
         .select_from(GroupMember)
         .join(User, GroupMember.user_id == User.id)
         .outerjoin(paid_subquery, GroupMember.user_id == paid_subquery.c.user_id)
         .outerjoin(owed_subquery, GroupMember.user_id == owed_subquery.c.user_id)
-        .outerjoin(paid_settlement_subquery, GroupMember.user_id == paid_settlement_subquery.c.user_id)
-        .outerjoin(received_settlement_subquery, GroupMember.user_id == received_settlement_subquery.c.user_id)
+        .outerjoin(
+            paid_settlement_subquery,
+            GroupMember.user_id == paid_settlement_subquery.c.user_id,
+        )
+        .outerjoin(
+            received_settlement_subquery,
+            GroupMember.user_id == received_settlement_subquery.c.user_id,
+        )
         .where(GroupMember.group_id == group_id)
     )
 
