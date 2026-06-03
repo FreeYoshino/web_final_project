@@ -18,19 +18,28 @@ class BalanceService:
         # 將 raw_balances 轉化為 Pydantic 模型 (回傳原始 totals 與 settlement 調整量)
         formatted_balances = []
         for balance in raw_balances:
-            formatted_balance = {
-                "user_id": balance.user_id,
-                "user_name": balance.user_name,
-                "total_paid_raw": balance.paid,
-                "total_owed_raw": balance.owed,
-                "settlements_paid": getattr(balance, 'paid_settlement', 0),
-                "settlements_received": getattr(balance, 'received_settlement', 0),
-                "balance": balance.net_balance,
-            }
-            formatted_balances.append(UserBalanceResponse(**formatted_balance))
+            formatted_balances.append(
+                UserBalanceResponse.model_validate(
+                    {
+                        "user_id": balance.user_id,
+                        "user_name": balance.user_name,
+                        "total_paid_raw": balance.paid,
+                        "total_owed_raw": balance.owed,
+                        "settlements_paid": getattr(balance, "paid_settlement", 0),
+                        "settlements_received": getattr(balance, "received_settlement", 0),
+                        "balance": balance.net_balance,
+                    }
+                )
+            )
 
         # 計算簡化後的交易建議
         settlements = simplify_debts(formatted_balances)
 
-        return GroupBalanceResponse(group_id=group_id, balances=formatted_balances, settlements=settlements)
+        return GroupBalanceResponse.model_validate(
+            {
+                "group_id": group_id,
+                "balances": formatted_balances,
+                "settlements": settlements,
+            }
+        )
     
