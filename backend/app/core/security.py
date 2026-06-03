@@ -1,7 +1,11 @@
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
+from fastapi.security import OAuth2PasswordBearer
+
 from datetime import datetime, timedelta, timezone
+
 from jose import jwt
 from jose.exceptions import JWTError, ExpiredSignatureError
+
 from app.core.config import get_settings
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -44,4 +48,15 @@ def verify_token(token: str):
             headers={"WWW-Authenticate": "Bearer"}
         )
     
-
+def get_current_user_id(
+        token: str = Depends(OAuth2PasswordBearer(tokenUrl="login/")),
+):
+    payload = verify_token(token)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="無法辨識使用者",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    return user_id
