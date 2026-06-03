@@ -11,10 +11,9 @@ SettlementMethod = Literal["cash", "credit_card", "bank_transfer"]
 # Settlement的狀態定義
 SettlementStatus = Literal["pending", "completed", "cancelled"]
 
-'''settlement基礎schema'''
-class SettlementBase(BaseSchema):
-    '''settlement的基礎欄位定義'''
-    payer_id: UUID = Field(..., description="付款人ID")
+'''settlement共用schema（不包含付款人，由JWT推斷）'''
+class SettlementCommonBase(BaseSchema):
+    '''settlement的共用欄位定義（不含payer_id，由認證使用者推斷）'''
     receiver_id: UUID = Field(..., description="收款人ID")
     amount: Decimal = Field(..., gt=0, decimal_places=2, description="交易金額")
     method: Optional[SettlementMethod] = Field(None, description="付款方式")
@@ -32,9 +31,22 @@ class SettlementBase(BaseSchema):
             raise ValueError('金額超過最大值 99,999,999.99')
         return value
 
-class SettlementCreate(SettlementBase):
-    '''建立settlement 時的輸入schema'''
+
+'''settlement基礎schema'''
+class SettlementBase(SettlementCommonBase):
+    '''settlement的基礎欄位定義（包含付款人，供 response 與內部 schema 使用）'''
+    payer_id: UUID = Field(..., description="付款人ID")
+
+
+class SettlementCreate(SettlementCommonBase):
+    '''建立settlement 時的輸入schema（付款人由JWT推斷）'''
     pass
+
+
+class SettlementCreateWithPayer(SettlementBase):
+    '''建立settlement 的內部schema，會由 current_user_id 補上付款人'''
+    pass
+
 
 class SettlementUpdatePUT(SettlementBase):
     '''更新settlement 時的輸入schema'''

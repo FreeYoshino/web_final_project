@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.expense import Expense, ExpenseSplit
 from app.models.group import Group
 from app.models.settlement import Settlement
-from app.schemas.settlement import SettlementCreate
+from app.schemas.settlement import SettlementCreateWithPayer
 
 class SettlementCrud:
     @staticmethod
-    def create_settlement(db: Session, settlement_in: SettlementCreate) -> Settlement:
+    def create_settlement(db: Session, settlement_in: SettlementCreateWithPayer) -> Settlement:
         """建立一筆結算紀錄"""
 
         new_settlement = Settlement(**settlement_in.model_dump())
@@ -29,7 +29,7 @@ class SettlementCrud:
             raise
 
     @staticmethod
-    def _mark_related_splits_settled(db: Session, settlement_in: SettlementCreate) -> None:
+    def _mark_related_splits_settled(db: Session, settlement_in: SettlementCreateWithPayer) -> None:
         """將結算對應的 expense split 標記為已結清"""
 
         if settlement_in.expense_id is not None:

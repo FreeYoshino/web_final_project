@@ -1,15 +1,12 @@
 # ORM 連線設定
-import os
 from typing import Generator
 
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from app.core.config import get_settings
 
-# 讀取 .env 檔案
-load_dotenv()
-
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
+settings = get_settings()
+SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
 
 # 建立連線引擎
 engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)

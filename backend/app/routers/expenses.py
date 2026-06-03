@@ -1,11 +1,12 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, Query, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
-from app.crud.expense import create_group_expense
 from app.db.database import get_db
 from app.schemas.expense import ExpenseCreate
 from app.services.expense import ExpenseService
+
+from app.core.security import get_current_user_id
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -22,7 +23,6 @@ def create_expense(
                 "value": {
                     "description": "晚餐",
                     "amount": 300,
-                    "paid_by_id": "SEED_USER1_ID",
                     "group_id": "SEED_GROUP_ID",
                     "category": "food",
                     "split_type": "EQUAL",
@@ -45,7 +45,6 @@ def create_expense(
                 "value": {
                     "description": "飲料",
                     "amount": 120,
-                    "paid_by_id": "SEED_USER1_ID",
                     "group_id": "SEED_GROUP_ID",
                     "category": "drinks",
                     "split_type": "EXACT",
@@ -65,18 +64,18 @@ def create_expense(
         },
     ),
     db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
-    '''
+    """
     建立群組費用
-    '''
-    try:
-        expense = create_group_expense(db=db, expense_in=expense_in)
-        return {
-            "id": str(expense.id),
-            "message": "Expense created successfully",
-        }
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    """
+    expense = ExpenseService.create_group_expense(
+        db=db, expense_in=expense_in, current_user_id=current_user_id
+    )
+    return {
+        "id": str(expense.id),
+        "message": "Expense created successfully",
+    }
 
 
 @router.get("/{group_id}")
@@ -105,16 +104,15 @@ def get_expense_list(
         },
     ),
     db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
-    '''
+    """
     取得群組費用列表
-    '''
-    try:
-        return ExpenseService.get_group_expense_list(
-            db=db,
-            group_id=group_id,
-            page=page,
-            size=size,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    """
+    return ExpenseService.get_group_expense_list(
+        db=db,
+        group_id=group_id,
+        page=page,
+        size=size,
+        current_user_id=current_user_id,
+    )
