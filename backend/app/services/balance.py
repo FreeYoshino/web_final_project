@@ -1,3 +1,4 @@
+from fastapi import HTTPException, status
 from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,7 +23,9 @@ class BalanceService:
         # 驗證輸入資料的合理性
         group = db.scalar(select(Group).where(Group.id == group_id))
         if group is None:
-            raise ValueError("群組不存在")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="群組不存在"
+            )
 
         current_user_in_group = db.scalar(
             select(GroupMember).where(
@@ -31,7 +34,9 @@ class BalanceService:
             )
         )
         if current_user_in_group is None:
-            raise ValueError("使用者不是群組成員")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="使用者不是群組成員"
+            )
 
         # 從 CRUD 層獲取原始餘額資料
         raw_balances = crud_get_group_balances(db, group_id)

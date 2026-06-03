@@ -1,3 +1,5 @@
+from fastapi import HTTPException, status
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -23,7 +25,9 @@ class GroupService:
 
         creator = db.scalar(select(User).where(User.id == creator_id))
         if creator is None:
-            raise ValueError("建立者不存在")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="建立者不存在"
+            )
 
         existing_group = db.scalar(
             select(Group).where(
@@ -32,27 +36,51 @@ class GroupService:
             )
         )
         if existing_group is not None:
-            raise ValueError("同一建立者已存在相同名稱的群組")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="同一建立者已存在相同名稱的群組",
+            )
 
         group = GroupCrud.create_group(db, group_in, creator_id)
         return GroupResponse.model_validate(group)
 
     @staticmethod
     def add_members_to_group(
-        db: Session, group_id: UUID, members_in: GroupMembersCreate
+        db: Session,
+        group_id: UUID,
+        members_in: GroupMembersCreate,
+        current_user_id: UUID,
     ) -> GroupMemberListResponse:
         """加入成員到群組的商業邏輯驗證與資料處理"""
+
         user_ids = members_in.user_ids
 
         if not user_ids:
-            raise ValueError("user_ids 不能為空")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="user_ids 不能為空"
+            )
 
         if len(user_ids) != len(set(user_ids)):
-            raise ValueError("user_ids 不能重複")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="user_ids 不能重複"
+            )
 
         group = db.scalar(select(Group).where(Group.id == group_id))
         if group is None:
-            raise ValueError("群組不存在")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="群組不存在"
+            )
+
+        current_user_in_group = db.scalar(
+            select(GroupMember).where(
+                GroupMember.group_id == group_id,
+                GroupMember.user_id == current_user_id,
+            )
+        )
+        if current_user_in_group is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="使用者不是群組成員"
+            )
 
         users = db.scalars(select(User).where(User.id.in_(user_ids))).all()
         if len(users) != len(user_ids):
@@ -60,7 +88,10 @@ class GroupService:
             missing_user_ids = [
                 str(user_id) for user_id in user_ids if user_id not in existing_user_ids
             ]
-            raise ValueError(f"以下使用者不存在: {', '.join(missing_user_ids)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"以下使用者不存在: {', '.join(missing_user_ids)}",
+            )
 
         existing_members = db.scalars(
             select(GroupMember.user_id).where(
@@ -72,7 +103,10 @@ class GroupService:
             existing_member_ids = ", ".join(
                 str(user_id) for user_id in existing_members
             )
-            raise ValueError(f"以下使用者已在群組中: {existing_member_ids}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"以下使用者已在群組中: {existing_member_ids}",
+            )
 
         members = GroupCrud.add_members_to_group(
             db, group_id, user_ids, members_in.role
@@ -84,12 +118,27 @@ class GroupService:
         return GroupMemberListResponse(group_id=group_id, members=member_responses)
 
     @staticmethod
-    def get_group_members(db: Session, group_id: UUID) -> GroupMemberListResponse:
+    def get_group_members(
+        db: Session, group_id: UUID, current_user_id: UUID
+    ) -> GroupMemberListResponse:
         """取得群組成員清單的商業邏輯處理"""
 
         group = db.scalar(select(Group).where(Group.id == group_id))
         if group is None:
-            raise ValueError("群組不存在")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="群組不存在"
+            )
+
+        current_user_in_group = db.scalar(
+            select(GroupMember).where(
+                GroupMember.group_id == group_id,
+                GroupMember.user_id == current_user_id,
+            )
+        )
+        if current_user_in_group is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="使用者不是群組成員"
+            )
 
         members = GroupCrud.get_group_members(db, group_id)
         member_responses = [
