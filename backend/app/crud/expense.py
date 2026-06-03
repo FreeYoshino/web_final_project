@@ -8,13 +8,14 @@ from sqlalchemy import select, func, exists
 from app.models.expense import Expense, ExpenseSplit
 from app.models.group import Group, GroupMember
 from app.models.user import User
-from app.schemas.expense import ExpenseCreate
+from app.schemas.expense import ExpenseCreateWithPayer
 from app.services.expense_split_helper import calculate_split_amounts
 
 from uuid import UUID
 from typing import Tuple, Sequence, Optional
 
-def create_group_expense(db: Session, expense_in: ExpenseCreate) -> Expense:
+
+def create_group_expense(db: Session, expense_in: ExpenseCreateWithPayer) -> Expense:
     """建立一筆群組費用 並同步建立分攤明細"""
 
     # 驗證輸入資料的合理性
@@ -81,17 +82,20 @@ def create_group_expense(db: Session, expense_in: ExpenseCreate) -> Expense:
         db.rollback()
         raise
 
-def get_group_expenses(db: Session, group_id: UUID, skip: int, limit: int) -> Tuple[int, Sequence[Expense]]:
+
+def get_group_expenses(
+    db: Session, group_id: UUID, skip: int, limit: int
+) -> Tuple[int, Sequence[Expense]]:
     """
     取得群組的歷史帳單列表 (含分頁與關聯資料)
     回傳: (總筆數, 帳單列表)
     """
 
     # 驗證群組存在
-    group = db.query(Group).filter(Group.id == group_id).first() 
+    group = db.query(Group).filter(Group.id == group_id).first()
     if group is None:
         raise ValueError("群組不存在")
-    
+
     # 查詢總筆數
     pending_split_exists = exists().where(
         ExpenseSplit.expense_id == Expense.id,
@@ -113,7 +117,7 @@ def get_group_expenses(db: Session, group_id: UUID, skip: int, limit: int) -> Tu
         .options(
             selectinload(Expense.payer),
             selectinload(Expense.group),
-            selectinload(Expense.splits)
+            selectinload(Expense.splits),
         )
         .order_by(Expense.created_at.desc())
         .offset(skip)
@@ -121,5 +125,5 @@ def get_group_expenses(db: Session, group_id: UUID, skip: int, limit: int) -> Tu
     )
     result = db.execute(statements)
     expenses = result.scalars().all()
-    
+
     return total, expenses

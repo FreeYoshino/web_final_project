@@ -6,6 +6,8 @@ from app.db.database import get_db
 from app.schemas.expense import ExpenseCreate
 from app.services.expense import ExpenseService
 
+from app.core.security import get_current_user_id
+
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
 
@@ -21,7 +23,6 @@ def create_expense(
                 "value": {
                     "description": "晚餐",
                     "amount": 300,
-                    "paid_by_id": "SEED_USER1_ID",
                     "group_id": "SEED_GROUP_ID",
                     "category": "food",
                     "split_type": "EQUAL",
@@ -44,7 +45,6 @@ def create_expense(
                 "value": {
                     "description": "飲料",
                     "amount": 120,
-                    "paid_by_id": "SEED_USER1_ID",
                     "group_id": "SEED_GROUP_ID",
                     "category": "drinks",
                     "split_type": "EXACT",
@@ -64,11 +64,14 @@ def create_expense(
         },
     ),
     db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
 ):
     """
     建立群組費用
     """
-    expense = ExpenseService.create_group_expense(db=db, expense_in=expense_in)
+    expense = ExpenseService.create_group_expense(
+        db=db, expense_in=expense_in, current_user_id=current_user_id
+    )
     return {
         "id": str(expense.id),
         "message": "Expense created successfully",

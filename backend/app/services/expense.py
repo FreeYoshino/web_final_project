@@ -7,16 +7,26 @@ from sqlalchemy.orm import Session
 
 from app.crud.expense import create_group_expense as create_group_expense_crud
 from app.crud.expense import get_group_expenses
-from app.schemas.expense import ExpenseListResponse, ExpenseResponse
+from app.schemas.expense import (
+    ExpenseCreateWithPayer,
+    ExpenseListResponse,
+    ExpenseResponse,
+)
 
 
 class ExpenseService:
     @staticmethod
-    def create_group_expense(db: Session, expense_in):
+    def create_group_expense(db: Session, expense_in, current_user_id: UUID):
         """建立群組費用並將業務錯誤轉成 HTTPException"""
 
         try:
-            return create_group_expense_crud(db=db, expense_in=expense_in)
+            expense_in_with_payer = ExpenseCreateWithPayer.model_validate(
+                {
+                    **expense_in.model_dump(),
+                    "paid_by_id": current_user_id,
+                }
+            )
+            return create_group_expense_crud(db=db, expense_in=expense_in_with_payer)
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
