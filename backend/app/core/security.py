@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 
@@ -59,4 +61,4 @@ def get_current_user_id(
             detail="無法辨識使用者",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    return user_id
+    return UUID(user_id)
