@@ -1,6 +1,6 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from uuid import UUID
 
 from app.models.group import Group, GroupMember
@@ -60,7 +60,41 @@ class GroupCrud:
 
     @staticmethod
     def get_group_members(db: Session, group_id: UUID) -> list[GroupMember]:
-        """取得群組成員列表"""
-        return db.scalars(
-            select(GroupMember).where(GroupMember.group_id == group_id)
+        """取得群組成員列表（含使用者資訊）"""
+        return list(
+            db.scalars(
+                select(GroupMember)
+                .where(GroupMember.group_id == group_id)
+                .options(selectinload(GroupMember.user))
+            ).all()
+        )
+
+    @staticmethod
+    def get_user_groups(db: Session, user_id: UUID) -> list[GroupMember]:
+        """取得使用者所屬的所有群組成員記錄（含群組資訊）"""
+        return list(
+            db.scalars(
+                select(GroupMember)
+                .where(GroupMember.user_id == user_id)
+                .options(selectinload(GroupMember.group))
+            ).all()
+        )
+
+    @staticmethod
+    def get_group_member_counts(
+        db: Session, group_ids: list[UUID]
+    ) -> dict[UUID, int]:
+        """批次查詢多個群組的成員數量"""
+        if not group_ids:
+            return {}
+        rows = (
+            db.execute(
+                select(
+                    GroupMember.group_id,
+                    func.count(GroupMember.id).label("member_count"),
+                )
+                .where(GroupMember.group_id.in_(group_ids))
+                .group_by(GroupMember.group_id)
+            )
         ).all()
+        return {row.group_id: row.member_count for row in rows}

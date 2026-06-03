@@ -69,6 +69,8 @@ class GroupMemberResponse(GroupMemberBase, IDSchema):
 
     group_id: UUID = Field(..., description="群組 ID")
     user_id: UUID = Field(..., description="使用者 ID")
+    username: str = Field(..., description="使用者帳號名稱")
+    name: str = Field(..., description="使用者真實姓名")
     joined_at: datetime = Field(..., description="加入時間")
 
 
@@ -79,3 +81,26 @@ class GroupMemberListResponse(BaseSchema):
     members: List[GroupMemberResponse] = Field(
         default_factory=list, description="成員清單"
     )
+
+
+class UserGroupResponse(BaseSchema):
+    """使用者所屬群組的回應 schema（含角色與成員數）"""
+
+    id: UUID = Field(..., description="群組 ID")
+    name: str = Field(..., description="群組名稱")
+    description: Optional[str] = Field(None, description="群組描述")
+    avatar_url: Optional[str] = Field(None, description="群組頭像網址")
+    role: GroupMemberRole = Field(..., description="當前使用者在群組中的角色")
+    member_count: int = Field(..., ge=0, description="群組成員總數")
+    creator_id: UUID = Field(..., description="群組建立者 ID")
+    created_at: datetime = Field(..., description="建立時間")
+    updated_at: datetime = Field(..., description="更新時間")
+
+
+class UserGroupListResponse(BaseSchema):
+    """使用者所屬群組清單回應 schema"""
+
+    groups: List[UserGroupResponse] = Field(
+        default_factory=list, description="群組清單"
+    )
+    total: int = Field(..., ge=0, description="群組總數")

@@ -11,11 +11,29 @@ from app.schemas.group import (
     GroupResponse,
     GroupMembersCreate,
     GroupMemberListResponse,
+    UserGroupListResponse,
 )
 
 from app.core.security import get_current_user_id
 
 router = APIRouter(prefix="/groups", tags=["groups"])
+
+
+@router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=UserGroupListResponse,
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "Invalid or missing token"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Internal server error"},
+    },
+)
+def get_my_groups(
+    db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
+) -> UserGroupListResponse:
+    """查詢當前使用者所在的所有群組，包含在每個群組中的角色與成員數"""
+    return GroupService.get_my_groups(db, current_user_id)
 
 
 @router.get(

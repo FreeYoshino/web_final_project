@@ -13,6 +13,8 @@ from app.schemas.group import (
     GroupMembersCreate,
     GroupMemberListResponse,
     GroupMemberResponse,
+    UserGroupResponse,
+    UserGroupListResponse,
 )
 
 
@@ -112,7 +114,14 @@ class GroupService:
             db, group_id, user_ids, members_in.role
         )
         member_responses = [
-            GroupMemberResponse.model_validate(member) for member in members
+            GroupMemberResponse.model_validate(
+                {
+                    **member.__dict__,
+                    "username": member.user.username,
+                    "name": member.user.name,
+                }
+            )
+            for member in members
         ]
 
         return GroupMemberListResponse(group_id=group_id, members=member_responses)
@@ -142,7 +151,45 @@ class GroupService:
 
         members = GroupCrud.get_group_members(db, group_id)
         member_responses = [
-            GroupMemberResponse.model_validate(member) for member in members
+            GroupMemberResponse.model_validate(
+                {
+                    **member.__dict__,
+                    "username": member.user.username,
+                    "name": member.user.name,
+                }
+            )
+            for member in members
         ]
 
         return GroupMemberListResponse(group_id=group_id, members=member_responses)
+
+    @staticmethod
+    def get_my_groups(
+        db: Session, current_user_id: UUID
+    ) -> UserGroupListResponse:
+        """查詢當前使用者所在的所有群組"""
+
+        memberships = GroupCrud.get_user_groups(db, current_user_id)
+
+        if not memberships:
+            return UserGroupListResponse(groups=[], total=0)
+
+        group_ids = [m.group_id for m in memberships]
+        member_counts = GroupCrud.get_group_member_counts(db, group_ids)
+
+        groups = [
+            UserGroupResponse(
+                id=m.group.id,
+                name=m.group.name,
+                description=m.group.description,
+                avatar_url=m.group.avatar_url,
+                role=m.role,
+                member_count=member_counts.get(m.group_id, 0),
+                creator_id=m.group.creator_id,
+                created_at=m.group.created_at,
+                updated_at=m.group.updated_at,
+            )
+            for m in memberships
+        ]
+
+        return UserGroupListResponse(groups=groups, total=len(groups))
