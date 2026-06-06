@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X, UserPlus, Receipt, HandCoins, ArrowRight, Clock, CheckCircle } from 'lucide-react';
+import { X, UserPlus, Receipt, HandCoins, ArrowRight, Clock, CheckCircle, ListChecks } from 'lucide-react';
 import { useGroupStore } from '../store/groupStore';
 import { groupAPI } from '../services/api';
 
 export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState('members'); // 'members' | 'history' | 'settlement'
+  const [activeTab, setActiveTab] = useState('members');
   const [newMemberName, setNewMemberName] = useState('');
   const [selectedExpense, setSelectedExpense] = useState(null);
-  const [settlementData, setSettlementData] = useState(null); // 只要有值，就會彈出還款視窗
+  const [settlementData, setSettlementData] = useState(null); 
   const [settleMethod, setSettleMethod] = useState('cash');
   const [settleNotes, setSettleNotes] = useState('');
   const { addMember } = useGroupStore();
@@ -17,27 +17,41 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
   if (!group) return null;
 
   const { data: balanceData, isLoading: isBalancesLoading } = useQuery({
-    // queryKey 包含 groupId，這樣切換不同群組時，快取才會是獨立的
     queryKey: ['groupBalances', group.id],
-    // 呼叫我們在 api.js 寫好的函式，並傳入 groupId
     queryFn: () => groupAPI.getGroupBalances(group.id),
-    // 只有在切換到「結算」分頁時才去抓資料，節省資源
     enabled: activeTab === 'settlement'
   });
 
   const { data: expensesData, isLoading: isExpensesLoading } = useQuery({
     queryKey: ['groupExpenses', group.id],
     queryFn: () => groupAPI.getGroupExpenses(group.id),
-    enabled: activeTab === 'history' // 只有切換到歷史記錄才去抓資料
+    enabled: activeTab === 'history'
   });
-  // 送出結算的 Mutation
+
+  const { data: settlementsData, isLoading: isSettlementsLoading } = useQuery({
+    queryKey: ['groupSettlements', group.id],
+    queryFn: () => groupAPI.getSettlements(group.id),
+    enabled: activeTab === 'repayments'
+  });
+
+  const methodMap = {
+    cash: '現金',
+    bank_transfer: '轉帳',
+    credit_card: '信用卡'
+  };
+
+  const statusMap = {
+    pending: '處理中',
+    completed: '已結清'
+  };
+
   const settlementMutation = useMutation({
     mutationFn: groupAPI.createSettlement,
     onSuccess: () => {
       alert('還款成功！');
-      // 成功後強制重新整理歷史帳單與結算畫面
       queryClient.invalidateQueries({ queryKey: ['groupBalances', group.id] });
       queryClient.invalidateQueries({ queryKey: ['groupExpenses', group.id] });
+      queryClient.invalidateQueries({ queryKey: ['groupSettlements', group.id] });
       setSettlementData(null);
       setSettleNotes('');
     },
@@ -45,7 +59,7 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
       alert('還款失敗：' + (error.response?.data?.detail || error.message));
     }
   });
-  //新增成員處理
+
   const handleAddMember = (e) => {
     e.preventDefault();
     if (!newMemberName.trim()) return;
@@ -54,7 +68,6 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
   };
 
   const handleSettleSubmit = () => {
-    // 依照是否有 expense_id 來判斷是方法一還是方法二
     const isSpecificExpense = !!settlementData.expense_id;
 
     const payload = {
@@ -64,9 +77,7 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
       method: settleMethod,
       group_id: group.id,
       expense_id: settlementData.expense_id,
-
-      // 根據你的規格：單筆為 completed，總結算為 pending
-      status: isSpecificExpense ? 'completed' : 'pending',
+      status: 'completed',
       notes: settleNotes.trim() || (isSpecificExpense ? '單筆還款' : '總額批次結算'),
       transaction_date: new Date().toISOString()
     };
@@ -83,7 +94,7 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
       <div className="bg-white w-full max-w-md h-[85vh] sm:h-[600px] sm:rounded-3xl rounded-t-3xl flex flex-col shadow-2xl animate-in slide-in-from-bottom-10 sm:slide-in-from-bottom-4 duration-300">
 
         {/* --- Header --- */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+        <div className="flex items-center justify-between p-5 border-b border-gray-100 shrink-0">
           <h2 className="text-xl font-bold text-gray-800">{group.name}</h2>
           <button onClick={onClose} className="p-2 text-gray-400 hover:bg-gray-100 rounded-full transition-colors">
             <X size={20} />
@@ -91,47 +102,39 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
         </div>
 
         {/* --- Tabs 導覽列 --- */}
-        <div className="flex border-b border-gray-100 px-2">
+        <div className="flex border-b border-gray-100 px-2 overflow-x-auto shrink-0">
           {[
             { id: 'members', label: '成員', icon: UserPlus },
             { id: 'history', label: '記錄', icon: Clock },
-            { id: 'settlement', label: '結算', icon: HandCoins }
+            { id: 'settlement', label: '結算', icon: HandCoins },
+            { id: 'repayments', label: '還款紀錄', icon: ListChecks }
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors border-b-2 ${activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:bg-gray-50'
-                }`}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap px-4 ${
+                activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:bg-gray-50'
+              }`}
             >
               <tab.icon size={16} /> {tab.label}
             </button>
           ))}
         </div>
 
-        {/* --- Tab 內容區域 --- */}
+        {/* --- Tab 內容區域 (有捲軸的區域) --- */}
         <div className="flex-1 overflow-y-auto p-5 bg-gray-50/50">
 
           {/* 1. 成員分頁 */}
           {activeTab === 'members' && (
             <div className="space-y-4">
               <form onSubmit={handleAddMember} className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="輸入新成員名稱..."
-                  value={newMemberName}
-                  onChange={(e) => setNewMemberName(e.target.value)}
-                  className="flex-1 px-4 py-2 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-                />
-                <button type="submit" disabled={!newMemberName.trim()} className="bg-gray-900 text-white px-4 py-2 rounded-xl disabled:bg-gray-300">
-                  加入
-                </button>
+                <input type="text" placeholder="輸入新成員名稱..." value={newMemberName} onChange={(e) => setNewMemberName(e.target.value)} className="flex-1 px-4 py-2 bg-white border border-gray-200 rounded-xl outline-none" />
+                <button type="submit" disabled={!newMemberName.trim()} className="bg-gray-900 text-white px-4 py-2 rounded-xl">加入</button>
               </form>
               <div className="space-y-2">
                 {group.members.map(member => (
-                  <div key={member.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">
-                      {member.name.charAt(0)}
-                    </div>
+                  <div key={member.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100">
+                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm">{member.name.charAt(0)}</div>
                     <span className="font-medium text-gray-700">{member.name}</span>
                   </div>
                 ))}
@@ -146,20 +149,12 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
                 <div className="text-center py-10 text-gray-400">載入歷史帳單中...</div>
               ) : expensesData?.items && expensesData.items.length > 0 ? (
                 expensesData.items.map(exp => (
-                  <button
-                    key={exp.id}
-                    onClick={() => setSelectedExpense(exp)}
-                    className="w-full p-4 bg-white rounded-xl border border-gray-100 shadow-sm flex justify-between items-center hover:bg-gray-50 transition-colors active:scale-[0.98] text-left"
-                  >
+                  <button key={exp.id} onClick={() => setSelectedExpense(exp)} className="w-full p-4 bg-white rounded-xl border border-gray-100 shadow-sm flex justify-between items-center hover:bg-gray-50 transition-colors active:scale-[0.98] text-left">
                     <div>
                       <h4 className="font-bold text-gray-800">{exp.description}</h4>
-                      <p className="text-xs text-gray-500 mt-1">
-                        由 {exp.payer_name || exp.paid_by_id} 代墊
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">由 {exp.payer_name || exp.paid_by_id} 代墊</p>
                     </div>
-                    <div className="text-lg font-bold text-blue-600">
-                      ${Number(exp.amount).toFixed(0)}
-                    </div>
+                    <div className="text-lg font-bold text-blue-600">${Number(exp.amount).toFixed(0)}</div>
                   </button>
                 ))
               ) : (
@@ -168,7 +163,7 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
             </div>
           )}
 
-          {/* 👉 方法二：總額結算 (批次) */}
+          {/* 3. 結算分頁 */}
           {activeTab === 'settlement' && (
             <div className="space-y-3">
               {isBalancesLoading ? (
@@ -184,14 +179,12 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
                       </div>
                       <span className="text-red-500 font-bold text-sm">需給付 ${Number(tx.amount).toFixed(0)}</span>
                     </div>
-
-                    {/* 總額結算按鈕 */}
                     <button
                       onClick={() => setSettlementData({
-                        payer_id: tx.from_user_id, // ⚠️ 請確認後端有給 from_user_id
-                        receiver_id: tx.to_user_id, // ⚠️ 請確認後端有給 to_user_id
+                        payer_id: tx.from_user_id,
+                        receiver_id: tx.to_user_id,
                         amount: tx.amount,
-                        expense_id: null // 批次結算帶 null
+                        expense_id: null
                       })}
                       className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-bold text-sm transition-colors"
                     >
@@ -204,19 +197,67 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
               )}
             </div>
           )}
-        </div>
+
+          {/* 4. 還款紀錄分頁 (👉 搬進來這裡了！) */}
+          {activeTab === 'repayments' && (
+            <div className="space-y-3">
+              {isSettlementsLoading ? (
+                <div className="text-center py-10 text-gray-400">載入還款紀錄中...</div>
+              ) : settlementsData?.settlements && settlementsData.settlements.length > 0 ? (
+                settlementsData.settlements.map((record) => (
+                  <div key={record.id} className="p-4 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col gap-3">
+                    <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-700">{record.payer_name}</span>
+                        <ArrowRight size={16} className="text-gray-300" />
+                        <span className="font-bold text-gray-700">{record.receiver_name}</span>
+                      </div>
+                      <div className="text-lg font-bold text-green-600">
+                        +${Number(record.amount).toFixed(0)}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <div className="flex gap-2">
+                          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md font-medium">
+                            {methodMap[record.method] || record.method}
+                          </span>
+                          <span className={`px-2 py-1 rounded-md font-bold ${record.status === 'completed' ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
+                            {statusMap[record.status] || record.status}
+                          </span>
+                        </div>
+                        <span className="text-gray-400">
+                          {new Date(record.transaction_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      {(record.notes || record.expense_description) && (
+                        <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded-lg mt-1">
+                          {record.expense_description && (
+                            <span className="font-bold text-gray-700 mr-1">[{record.expense_description}]</span>
+                          )}
+                          {record.notes}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-10 text-gray-400">目前還沒有任何還款紀錄喔！</div>
+              )}
+            </div>
+          )}
+
+        </div> {/* 👈 內容區域在這裡完美結束 */}
 
         {/* --- 底部動作區塊 --- */}
-        <div className="p-4 bg-white border-t border-gray-100">
-          <button
-            onClick={() => onNavigateToBill(group.id)}
-            className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors"
-          >
+        <div className="p-4 bg-white border-t border-gray-100 shrink-0">
+          <button onClick={() => onNavigateToBill(group.id)} className="w-full bg-blue-600 text-white py-3.5 rounded-xl font-bold flex items-center justify-center gap-2">
             <Receipt size={20} /> 新增這群的帳單
           </button>
         </div>
 
-      </div>
+      </div> {/* 👈 白底視窗本體在這裡完美結束 */}
+
       {/* --- 單筆帳單詳細視窗 --- */}
       {selectedExpense && (
         <div className="fixed inset-0 bg-black/60 z-[110] flex justify-center items-center p-4 animate-in fade-in">
@@ -246,15 +287,13 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
                       <span className="text-gray-700">{memberName} {isPayer && "(代墊)"}</span>
                       <div className="flex items-center gap-3">
                         <span className="font-medium text-gray-900">${Number(split.split_amount).toFixed(0)}</span>
-
-                        {/* 👉 方法一：單筆結清按鈕 (不是代墊人且還沒結清才顯示) */}
                         {!isPayer && !split.is_settled ? (
                           <button
                             onClick={() => setSettlementData({
                               payer_id: split.user_id,
                               receiver_id: selectedExpense.paid_by_id,
                               amount: split.split_amount,
-                              expense_id: selectedExpense.id // 單筆結算帶入 expense_id
+                              expense_id: selectedExpense.id
                             })}
                             className="bg-blue-600 text-white text-xs px-2 py-1 rounded"
                           >
@@ -274,12 +313,12 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
         </div>
       )}
 
-      {/* 👉 3. 還款確認表單視窗 (共用) */}
+      {/* --- 還款確認表單視窗 --- */}
       {settlementData && (
         <div className="fixed inset-0 bg-black/70 z-[120] flex justify-center items-center p-4">
           <div className="bg-white w-full max-w-xs rounded-2xl p-6 shadow-2xl">
             <h3 className="text-lg font-bold text-gray-800 mb-4">確認還款資訊</h3>
-            
+
             <div className="mb-4 text-center p-4 bg-gray-50 rounded-xl">
               <p className="text-sm text-gray-500 mb-1">本次結算金額</p>
               <p className="text-3xl font-bold text-red-500">${Number(settlementData.amount).toFixed(0)}</p>
@@ -288,8 +327,8 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
             <div className="space-y-3 mb-6">
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">還款方式</label>
-                <select 
-                  value={settleMethod} 
+                <select
+                  value={settleMethod}
                   onChange={(e) => setSettleMethod(e.target.value)}
                   className="w-full p-2 border border-gray-200 rounded-lg outline-none"
                 >
@@ -298,11 +337,11 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
                   <option value="credit_card">信用卡</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">備註說明 (選填)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={settleNotes}
                   onChange={(e) => setSettleNotes(e.target.value)}
                   placeholder={settlementData.expense_id ? "例如：還昨天的午餐錢" : "例如：五月份總結算"}
@@ -312,13 +351,13 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
             </div>
 
             <div className="flex gap-2">
-              <button 
+              <button
                 onClick={() => setSettlementData(null)}
                 className="flex-1 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold"
               >
                 取消
               </button>
-              <button 
+              <button
                 onClick={handleSettleSubmit}
                 disabled={settlementMutation.isPending}
                 className="flex-1 py-2 bg-blue-600 text-white rounded-xl font-bold disabled:bg-blue-300"
@@ -329,6 +368,7 @@ export default function GroupDetailModal({ group, onClose, onNavigateToBill }) {
           </div>
         </div>
       )}
-    </div>
+
+    </div> // 👈 黑色遮罩完美結束
   );
 }

@@ -25,6 +25,11 @@ export const groupAPI = {
     // ⚠️ 請與後端確認這支 API 的正確網址路徑 (例如可能是 /transactions 或 /settlements)
     const response = await api.post('/settlements', settlementData);
     return response.data;
+  },
+
+  getSettlements: async(groupId) => {
+    const response = await api.get(`/settlements/${groupId}`);
+    return response.data;
   }
 };
 
