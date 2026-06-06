@@ -13,7 +13,7 @@ export default function TopNavbar() {
   return (
     // sticky top-0 讓導覽列固定在網頁最上方
     <nav className="sticky top-0 w-full bg-white border-b border-gray-200 z-50 shadow-sm flex">
-      <NavLink to="/" className={navItemClass}>
+      <NavLink to="/groups" className={navItemClass}>
         <Home size={20} />
         <span className="font-medium">群組</span>
       </NavLink>

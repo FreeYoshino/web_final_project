@@ -23,9 +23,8 @@ const InputField = ({ icon: Icon, name, type = 'text', placeholder, value, onCha
 
 export default function AuthPage() {
     const navigate = useNavigate();
-    const [isLoginMode, setIsLoginMode] = useState(true); // 控制目前是登入還是註冊
+    const [isLoginMode, setIsLoginMode] = useState(true);
 
-    // 綁定表單狀態 (包含 API 需要的所有欄位)
     const [formData, setFormData] = useState({
         username: '',
         email: '',
@@ -34,7 +33,6 @@ export default function AuthPage() {
         password: ''
     });
 
-    // 處理輸入框改變
     const handleChange = (e) => {
         setFormData({
             ...formData,
@@ -42,13 +40,11 @@ export default function AuthPage() {
         });
     };
 
-    // 註冊的 API 呼叫
     const registerMutation = useMutation({
         mutationFn: authAPI.register,
         onSuccess: () => {
             alert('註冊成功！請登入');
-            setIsLoginMode(true); // 註冊成功後自動切換到登入模式
-            // 清空密碼，確保安全
+            setIsLoginMode(true);
             setFormData(prev => ({ ...prev, password: '' }));
         },
         onError: (error) => {
@@ -56,23 +52,22 @@ export default function AuthPage() {
             let errMsg = error.message;
 
             if (typeof detail === 'string') {
-                errMsg = detail; // 一般錯誤字串
+                errMsg = detail;
             } else if (Array.isArray(detail)) {
-                errMsg = detail.map(err => err.msg).join('; '); // FastAPI 欄位驗證錯誤
+                errMsg = detail.map(err => err.msg).join('; ');
             } else if (detail) {
-                errMsg = JSON.stringify(detail); // 其他未知的物件格式
+                errMsg = JSON.stringify(detail);
             }
 
             alert('註冊失敗：' + errMsg);
         }
     });
 
-    // 登入的 API 呼叫 (目前暫定)
     const loginMutation = useMutation({
         mutationFn: authAPI.login,
         onSuccess: (data) => {
+            localStorage.setItem('token', data.access_token);
             alert('登入成功！');
-            // 未來這裡要處理 Token 儲存
             navigate('/');
         },
         onError: (error) => {
@@ -94,13 +89,13 @@ export default function AuthPage() {
     const handleSubmit = (e) => {
         e.preventDefault();
         if (isLoginMode) {
-            // 登入送出 (通常只需要 email/username 和 password)
+            // 👉 登入送出：只抓 formData 裡面的 email 和 password
             loginMutation.mutate({
-                username: formData.username,
+                email: formData.email, 
                 password: formData.password
             });
         } else {
-            // 註冊送出 (完整 payload)
+            // 註冊送出：完整 payload
             registerMutation.mutate(formData);
         }
     };
@@ -109,7 +104,6 @@ export default function AuthPage() {
         <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
             <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 animate-in fade-in zoom-in-95 duration-300">
 
-                {/* LOGO 區塊 */}
                 <div className="flex flex-col items-center mb-8">
                     <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 mb-4">
                         <Wallet size={32} />
@@ -123,21 +117,36 @@ export default function AuthPage() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    
+                    {/* 👉 永遠顯示 Email 欄位 (因為登入/註冊都需要) */}
+                    <InputField 
+                        icon={Mail} 
+                        name="email" 
+                        type="email" 
+                        placeholder="電子信箱 (Email)" 
+                        value={formData.email} 
+                        onChange={handleChange} 
+                    />
 
-                    {/* 註冊模式才顯示的額外欄位 */}
+                    {/* 👉 只有在「註冊」模式才顯示的欄位 */}
                     {!isLoginMode && (
-                        <>
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                            <InputField icon={User} name="username" placeholder="使用者帳號 (例如: alice123)" value={formData.username} onChange={handleChange} />
                             <InputField icon={User} name="name" placeholder="真實姓名 (例如: Alice Chen)" value={formData.name} onChange={handleChange} />
-                            <InputField icon={Mail} name="email" type="email" placeholder="電子信箱 (Email)" value={formData.email} onChange={handleChange} />
                             <InputField icon={Phone} name="phone" type="tel" placeholder="手機號碼" value={formData.phone} onChange={handleChange} />
-                        </>
+                        </div>
                     )}
 
-                    {/* 登入與註冊共用的欄位 */}
-                    <InputField icon={User} name="username" placeholder="使用者帳號 (Username)" value={formData.username} onChange={handleChange} />
-                    <InputField icon={Lock} name="password" type="password" placeholder="密碼" value={formData.password} onChange={handleChange} />
+                    {/* 👉 永遠顯示密碼欄位 */}
+                    <InputField 
+                        icon={Lock} 
+                        name="password" 
+                        type="password" 
+                        placeholder="密碼" 
+                        value={formData.password} 
+                        onChange={handleChange} 
+                    />
 
-                    {/* 送出按鈕 */}
                     <button
                         type="submit"
                         disabled={registerMutation.isPending || loginMutation.isPending}
@@ -149,7 +158,6 @@ export default function AuthPage() {
                     </button>
                 </form>
 
-                {/* 切換模式的按鈕 */}
                 <div className="mt-6 text-center">
                     <span className="text-gray-500 text-sm">
                         {isLoginMode ? '還沒有帳號嗎？' : '已經有帳號了？'}
@@ -158,6 +166,7 @@ export default function AuthPage() {
                         type="button"
                         onClick={() => {
                             setIsLoginMode(!isLoginMode);
+                            // 切換模式時清空表單
                             setFormData({
                                 username: '',
                                 email: '',

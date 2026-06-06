@@ -2,14 +2,51 @@ import axios from 'axios';
 export const api = axios.create({
   baseURL: 'http://localhost:8000', 
   timeout: 5000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
-
+// 請求攔截器
+api.interceptors.request.use(
+  (config) => {
+    // 從瀏覽器的 localStorage 拿出 Token
+    const token = localStorage.getItem('token');
+    
+    if (token) {
+      // 如果有 Token，就照著 JWT 標準格式塞入 Authorization header
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+// 回應攔截器
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // 如果後端回傳 401 Unauthorized (代表 Token 過期或造假)
+      console.warn('Token 無效或已過期，請重新登入');
+      localStorage.removeItem('token'); // 清除過期 Token
+      
+      // 將使用者強制踢回登入頁
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 export const groupAPI = {
   // 取得使用者的所有群組
-//   getGroups: async () => {
-//     const response = await api.get('/groups'); // 替換成你們後端真實的路由
-//     return response.data;
-//   },
+  getGroups: async () => {
+    const response = await api.get('/groups');
+    return response.data;
+  },
 
   getGroupBalances: async (groupId) => {
     const response = await api.get(`/groups/${groupId}/balances`);
@@ -30,6 +67,24 @@ export const groupAPI = {
   getSettlements: async(groupId) => {
     const response = await api.get(`/settlements/${groupId}`);
     return response.data;
+  },
+
+  createGroup: async (groupData) => {
+    // 假設 groupData 是 { name: "我的新群組", description: "..." }
+    const response = await api.post('/groups', groupData);
+    return response.data;
+  },
+
+  // 👉 2. 取得特定群組的成員名單
+  getGroupMembers: async (groupId) => {
+    const response = await api.get(`/groups/${groupId}/members`);
+    return response.data;
+  },
+
+  // 👉 3. 新增成員到特定群組
+  addMemberToGroup: async ({ groupId, memberData }) => {
+    const response = await api.post(`/groups/${groupId}/members`, memberData);
+    return response.data;
   }
 };
 
@@ -42,8 +97,26 @@ export const authAPI = {
   
   // 2. 登入 (先預留位置)
   login: async (credentials) => {
-    // 通常登入是 POST /users/login 或是 /token
-    const response = await api.post('/users/login', credentials); 
+    const formData = new URLSearchParams();
+    formData.append('username', credentials.email);
+    formData.append('password', credentials.password);
+
+    const response = await api.post('login', formData,{
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded' // 告訴後端這是表單
+      }
+    });
+    return response.data;
+  }
+};
+
+export const userAPI = {
+  // 搜尋使用者
+  searchUsers: async (keyword) => {
+    // 這裡會發送類似 GET /users/search?username=alice 的請求
+    const response = await api.get('/users/search', {
+      params: { q: keyword } 
+    });
     return response.data;
   }
 };
@@ -54,3 +127,5 @@ export const billAPI = {
     return response.data;
   }
 };
+
+export default api;
