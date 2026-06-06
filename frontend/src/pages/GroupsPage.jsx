@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, Plus, ChevronRight, X } from 'lucide-react';
-import { useGroupStore } from '../store/groupStore';
+import { groupAPI } from '../services/api';
 import GroupDetailModal from '../components/GroupDetailModal';
 
 export default function GroupsPage() {
     const navigate = useNavigate();
-    // 從 Zustand 拿取群組資料與新增功能
-    const { groups, addGroup, setActiveGroup, activeGroupId } = useGroupStore();
+    const queryClient = useQueryClient();
 
     // 控制「新增群組」表單是否展開的狀態
     const [isCreating, setIsCreating] = useState(false);
@@ -15,23 +15,43 @@ export default function GroupsPage() {
 
     // 紀錄目前點開哪個群組
     const [selectedGroup, setSelectedGroup] = useState(null);
+
+    //抓取真實的群組列表
+    const { data: groupsData, isLoading, isError } = useQuery({
+        queryKey: ['groups'],
+        queryFn: groupAPI.getGroups
+    });
+    const groups = groupsData?.groups || [];
+
+    //建立新群組的 API 呼叫
+    const createGroupMutation = useMutation({
+        mutationFn: groupAPI.createGroup,
+        onSuccess: () => {
+            // 建立成功後，重新抓取群組列表更新畫面
+            queryClient.invalidateQueries({ queryKey: ['groups'] });
+            setNewGroupName('');
+            setIsCreating(false);
+        },
+        onError: (error) => {
+            alert('建立群組失敗：' + (error.response?.data?.detail || error.message));
+        }
+    });
+
     // 處理表單送出
     const handleCreateSubmit = (e) => {
         e.preventDefault();
         if (!newGroupName.trim()) return;
 
-        addGroup(newGroupName); // 呼叫 Zustand 寫入資料
-        setNewGroupName('');    // 清空輸入框
-        setIsCreating(false);   // 收起表單
+        // 依照你之前提供的規格，送出 name
+        createGroupMutation.mutate({
+            name: newGroupName,
+            description: "這是從網頁端建立的群組" // 可選
+        });
     };
 
-    // 點擊群組卡片時：設定為活躍群組，並跳轉去記帳
-    //   const handleGroupClick = (id) => {
-    //     setActiveGroup(id);
-    //     navigate('/new-bill');
-    //   };
+    // 點擊群組卡片時：設定為活躍群組，並開啟詳細視窗
     const handleGroupClick = (group) => {
-        setSelectedGroup(group); // 儲存點擊的群組物件，開啟視窗
+        setSelectedGroup(group); 
     };
 
     return (
@@ -71,10 +91,10 @@ export default function GroupsPage() {
                         />
                         <button
                             type="submit"
-                            disabled={!newGroupName.trim()}
+                            disabled={!newGroupName.trim() || createGroupMutation.isPending}
                             className="bg-blue-600 text-white px-4 py-2 rounded-xl font-medium disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
                         >
-                            完成
+                            {createGroupMutation.isPending ? '處理中...' : '完成'}
                         </button>
                     </form>
                 </div>
@@ -82,40 +102,47 @@ export default function GroupsPage() {
 
             {/* --- 群組列表 --- */}
             <div className="space-y-3">
-                {(groups || []).map((group) => (
-                    <button
-                        key={group.id}
-                        onClick={() => handleGroupClick(group)}
-                        className={`w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border transition-all hover:shadow-md active:scale-[0.98] ${activeGroupId === group.id ? 'border-gray-100' : 'border-gray-100'
-                            }`}
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shrink-0">
-                                <Users size={24} />
-                            </div>
-                            <div className="text-left">
-                                <h3 className="font-bold text-gray-800 text-lg">{group.name}</h3>
-                                <p className="text-sm text-gray-500 mt-0.5">
-                                    {(group.members || []).length} 位成員
-                                </p>
-                            </div>
-                        </div>
-                        <ChevronRight className="text-gray-300" />
-                    </button>
-                ))}
-
-                {(!groups || groups.length === 0) && (
+                {isLoading ? (
+                    <div className="text-center py-10 text-gray-400">載入群組中...</div>
+                ) : isError ? (
+                    <div className="text-center py-10 text-red-400 font-bold">載入失敗，請確認是否已登入</div>
+                ) : groups.length === 0 ? (
                     <div className="text-center py-10 text-gray-400">
                         目前還沒有任何群組喔，趕快建立一個吧！
                     </div>
+                ) : (
+                    groups.map((group) => (
+                        <button
+                            key={group.id}
+                            onClick={() => handleGroupClick(group)}
+                            className="w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-gray-100 transition-all hover:shadow-md active:scale-[0.98]"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shrink-0 font-bold text-xl">
+                                    {group.name.charAt(0)}
+                                </div>
+                                <div className="text-left">
+                                    <h3 className="font-bold text-gray-800 text-lg">{group.name}</h3>
+                                    <p className="text-sm text-gray-500 mt-0.5">
+                                        {/* 👉 改用後端傳回的 member_count */}
+                                        {group.member_count || 0} 位成員
+                                    </p>
+                                </div>
+                            </div>
+                            <ChevronRight className="text-gray-300" />
+                        </button>
+                    ))
                 )}
+
+                {/* 詳細視窗 */}
                 {selectedGroup && (
                     <GroupDetailModal
                         group={selectedGroup}
                         onClose={() => setSelectedGroup(null)} // 點擊關閉時清空 state
                         onNavigateToBill={(groupId) => {
-                            setActiveGroup(groupId);
-                            navigate('/new-bill');
+                            setSelectedGroup(null);
+                            // 直接帶入網址參數去記帳頁面
+                            navigate(`/new-bill?groupId=${groupId}`);
                         }}
                     />
                 )}

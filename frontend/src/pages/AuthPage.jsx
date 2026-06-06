@@ -1,0 +1,187 @@
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { Mail, Lock, User, Phone, Wallet } from 'lucide-react';
+import { authAPI } from '../services/api';
+
+const InputField = ({ icon: Icon, name, type = 'text', placeholder, value, onChange }) => (
+    <div className="relative">
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+            <Icon size={20} />
+        </span>
+        <input
+            type={type}
+            name={name}
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            required
+            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+        />
+    </div>
+);
+
+export default function AuthPage() {
+    const navigate = useNavigate();
+    const [isLoginMode, setIsLoginMode] = useState(true);
+
+    const [formData, setFormData] = useState({
+        username: '',
+        email: '',
+        phone: '',
+        name: '',
+        password: ''
+    });
+
+    const handleChange = (e) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+    };
+
+    const registerMutation = useMutation({
+        mutationFn: authAPI.register,
+        onSuccess: () => {
+            alert('註冊成功！請登入');
+            setIsLoginMode(true);
+            setFormData(prev => ({ ...prev, password: '' }));
+        },
+        onError: (error) => {
+            const detail = error.response?.data?.detail;
+            let errMsg = error.message;
+
+            if (typeof detail === 'string') {
+                errMsg = detail;
+            } else if (Array.isArray(detail)) {
+                errMsg = detail.map(err => err.msg).join('; ');
+            } else if (detail) {
+                errMsg = JSON.stringify(detail);
+            }
+
+            alert('註冊失敗：' + errMsg);
+        }
+    });
+
+    const loginMutation = useMutation({
+        mutationFn: authAPI.login,
+        onSuccess: (data) => {
+            localStorage.setItem('token', data.access_token);
+            alert('登入成功！');
+            navigate('/');
+        },
+        onError: (error) => {
+            const detail = error.response?.data?.detail;
+            let errMsg = error.message;
+
+            if (typeof detail === 'string') {
+                errMsg = detail;
+            } else if (Array.isArray(detail)) {
+                errMsg = detail.map(err => err.msg).join('; ');
+            } else if (detail) {
+                errMsg = JSON.stringify(detail);
+            }
+
+            alert('登入失敗：' + errMsg);
+        }
+    });
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (isLoginMode) {
+            // 👉 登入送出：只抓 formData 裡面的 email 和 password
+            loginMutation.mutate({
+                email: formData.email, 
+                password: formData.password
+            });
+        } else {
+            // 註冊送出：完整 payload
+            registerMutation.mutate(formData);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
+            <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 animate-in fade-in zoom-in-95 duration-300">
+
+                <div className="flex flex-col items-center mb-8">
+                    <div className="w-16 h-16 bg-blue-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 mb-4">
+                        <Wallet size={32} />
+                    </div>
+                    <h1 className="text-2xl font-bold text-gray-800">
+                        {isLoginMode ? '歡迎回來' : '建立新帳號'}
+                    </h1>
+                    <p className="text-gray-500 text-sm mt-2">
+                        {isLoginMode ? '請登入以繼續使用記帳服務' : '只需要幾個步驟就能開始記帳'}
+                    </p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    
+                    {/* 👉 永遠顯示 Email 欄位 (因為登入/註冊都需要) */}
+                    <InputField 
+                        icon={Mail} 
+                        name="email" 
+                        type="email" 
+                        placeholder="電子信箱 (Email)" 
+                        value={formData.email} 
+                        onChange={handleChange} 
+                    />
+
+                    {/* 👉 只有在「註冊」模式才顯示的欄位 */}
+                    {!isLoginMode && (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                            <InputField icon={User} name="username" placeholder="使用者帳號 (例如: alice123)" value={formData.username} onChange={handleChange} />
+                            <InputField icon={User} name="name" placeholder="真實姓名 (例如: Alice Chen)" value={formData.name} onChange={handleChange} />
+                            <InputField icon={Phone} name="phone" type="tel" placeholder="手機號碼" value={formData.phone} onChange={handleChange} />
+                        </div>
+                    )}
+
+                    {/* 👉 永遠顯示密碼欄位 */}
+                    <InputField 
+                        icon={Lock} 
+                        name="password" 
+                        type="password" 
+                        placeholder="密碼" 
+                        value={formData.password} 
+                        onChange={handleChange} 
+                    />
+
+                    <button
+                        type="submit"
+                        disabled={registerMutation.isPending || loginMutation.isPending}
+                        className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 active:scale-[0.98] transition-all disabled:bg-blue-300 mt-2"
+                    >
+                        {registerMutation.isPending || loginMutation.isPending
+                            ? '處理中...'
+                            : (isLoginMode ? '登入' : '註冊')}
+                    </button>
+                </form>
+
+                <div className="mt-6 text-center">
+                    <span className="text-gray-500 text-sm">
+                        {isLoginMode ? '還沒有帳號嗎？' : '已經有帳號了？'}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsLoginMode(!isLoginMode);
+                            // 切換模式時清空表單
+                            setFormData({
+                                username: '',
+                                email: '',
+                                phone: '',
+                                name: '',
+                                password: ''
+                            });
+                        }}
+                        className="ml-2 text-blue-600 font-bold text-sm hover:underline"
+                    >
+                        {isLoginMode ? '立即註冊' : '登入現有帳號'}
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    );
+}
