@@ -1,10 +1,12 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+from uuid import UUID
 
 from app.models.user import User
+from app.models.group import Group
 from app.crud.user import UserCrud
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserResponse, UserSearchResponse, UserSearchResult
 from app.schemas.jwt import Token
 from app.core.security import create_access_token
 from app.services.password import PasswordService
@@ -53,3 +55,66 @@ class UserService:
 
         access_token = create_access_token(data={"sub": str(user.id)})
         return Token(access_token=access_token)
+
+    @staticmethod
+    def search_users(
+        db: Session,
+        query: str,
+        limit: int = 20,
+        exclude_group_id: UUID | None = None,
+        current_user_id: UUID | None = None,
+    ) -> UserSearchResponse:
+        """
+        搜尋使用者的商業邏輯
+
+        Args:
+            query: 搜尋關鍵字（至少 1 個字元）
+            limit: 回傳筆數上限（1~50）
+            exclude_group_id: 排除已在此群組中的使用者
+            current_user_id: 當前登入者 ID（用於自我排除）
+
+        Returns:
+            UserSearchResponse: 符合條件的使用者清單與總數
+
+        Raises:
+            HTTPException: 搜尋字串為空、群組不存在
+        """
+
+        # 正規化搜尋字串
+        normalized_query = query.strip()
+        if not normalized_query:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="搜尋關鍵字不可為空白",
+            )
+
+        # 限制回傳筆數範圍
+        limit = max(1, min(limit, 50))
+
+        # 若指定排除群組，先確認群組存在
+        if exclude_group_id is not None:
+            group = db.scalar(select(Group).where(Group.id == exclude_group_id))
+            if group is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="指定的群組不存在",
+                )
+
+        users, total = UserCrud.search_users(
+            db=db,
+            query=normalized_query,
+            limit=limit,
+            exclude_group_id=exclude_group_id,
+            exclude_user_id=current_user_id,
+        )
+
+        user_list = [
+            UserSearchResult(
+                id=user.id,
+                username=user.username,
+                name=user.name,
+            )
+            for user in users
+        ]
+
+        return UserSearchResponse(users=user_list, total=total)
