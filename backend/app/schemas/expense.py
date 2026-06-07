@@ -102,6 +102,7 @@ class ExpenseSplitSimple(BaseSchema):
 
     id: UUID
     user_id: UUID
+    user_name: str
     split_amount: Decimal
     is_settled: bool
     settled_at: Optional[datetime] = None
