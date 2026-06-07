@@ -113,8 +113,8 @@ export const authAPI = {
 export const userAPI = {
   // 搜尋使用者
   searchUsers: async (keyword) => {
-    // 這裡會發送類似 GET /users/search?username=alice 的請求
-    const response = await api.get('/users/search', {
+    // 發送 GET /users?q=alice 搜尋請求
+    const response = await api.get('/users', {
       params: { q: keyword } 
     });
     return response.data;
