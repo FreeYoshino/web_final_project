@@ -1,6 +1,6 @@
 # 資料庫設計與正規化分析文件
 
-> **專案名稱**：群組分帳系統 (Group Expense Splitting System)  
+> **專案名稱**：Roommate Sync — 群組分帳系統 (Group Expense Splitting System)  
 > **資料庫管理系統**：PostgreSQL  
 > **ORM 框架**：SQLAlchemy 2.0  
 > **文件版本**：v1.0  
