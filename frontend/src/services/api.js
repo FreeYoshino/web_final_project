@@ -54,7 +54,7 @@ export const groupAPI = {
   },
 //   取得群組歷史賬單
   getGroupExpenses: async (groupId) => {
-    const response = await api.get(`/expenses/${groupId}`);
+    const response = await api.get(`/groups/${groupId}/expenses`);
     return response.data;
   },
 
@@ -65,7 +65,7 @@ export const groupAPI = {
   },
 
   getSettlements: async(groupId) => {
-    const response = await api.get(`/settlements/${groupId}`);
+    const response = await api.get(`/groups/${groupId}/settlements`);
     return response.data;
   },
 
