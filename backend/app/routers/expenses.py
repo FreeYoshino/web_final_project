@@ -11,7 +11,14 @@ from app.core.security import get_current_user_id
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Validation error (payer not found, not a member, non-member in splits, duplicate splits, invalid amounts)"},
+        status.HTTP_404_NOT_FOUND: {"description": "Group not found"},
+    },
+)
 def create_expense(
     # 使用 Body 並提供 openapi_examples 以便在 Swagger UI 中展示範例請求
     expense_in: ExpenseCreate = Body(

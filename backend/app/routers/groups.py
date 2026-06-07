@@ -79,6 +79,11 @@ def create_group(
     "/{group_id}/members",
     status_code=status.HTTP_201_CREATED,
     response_model=GroupMemberListResponse,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Validation error (empty / duplicate user_ids, user not found, already a member)"},
+        status.HTTP_403_FORBIDDEN: {"description": "Current user is not a group member"},
+        status.HTTP_404_NOT_FOUND: {"description": "Group not found"},
+    },
 )
 def add_members_to_group(
     group_id: UUID,

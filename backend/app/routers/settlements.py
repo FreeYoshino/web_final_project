@@ -11,7 +11,15 @@ from app.core.security import get_current_user_id
 
 router = APIRouter(prefix="/settlements", tags=["settlements"])
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Validation error (self-payment, payer/receiver not found)"},
+        status.HTTP_403_FORBIDDEN: {"description": "Payer or receiver is not a group member"},
+        status.HTTP_404_NOT_FOUND: {"description": "Group not found"},
+    },
+)
 def create_settlement(
     # 使用 Body 並提供 openapi_examples 以便在 Swagger UI 中展示範例請求
     settlement_in: SettlementCreate = Body(
