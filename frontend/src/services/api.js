@@ -54,7 +54,7 @@ export const groupAPI = {
   },
 //   取得群組歷史賬單
   getGroupExpenses: async (groupId) => {
-    const response = await api.get(`/expenses/${groupId}`);
+    const response = await api.get(`/groups/${groupId}/expenses`);
     return response.data;
   },
 
@@ -65,7 +65,7 @@ export const groupAPI = {
   },
 
   getSettlements: async(groupId) => {
-    const response = await api.get(`/settlements/${groupId}`);
+    const response = await api.get(`/groups/${groupId}/settlements`);
     return response.data;
   },
 
@@ -113,8 +113,8 @@ export const authAPI = {
 export const userAPI = {
   // 搜尋使用者
   searchUsers: async (keyword) => {
-    // 這裡會發送類似 GET /users/search?username=alice 的請求
-    const response = await api.get('/users/search', {
+    // 發送 GET /users?q=alice 搜尋請求
+    const response = await api.get('/users', {
       params: { q: keyword } 
     });
     return response.data;

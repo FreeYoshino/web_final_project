@@ -67,6 +67,10 @@ def get_current_user(
 		"/login",
 		status_code=status.HTTP_200_OK,
 		response_model=Token,
+		responses={
+			status.HTTP_401_UNAUTHORIZED: {"description": "密碼錯誤"},
+			status.HTTP_404_NOT_FOUND: {"description": "使用者不存在或信箱錯誤"},
+		},
 		openapi_extra={
 			"requestBody": {
 				"required": True,
@@ -94,7 +98,7 @@ def login_user(
 
 
 @router.get(
-    "/users/search",
+    "/users",
     status_code=status.HTTP_200_OK,
     response_model=UserSearchResponse,
     responses={
@@ -109,7 +113,7 @@ def search_users(
         ...,
         min_length=1,
         max_length=50,
-        description="搜尋關鍵字（比對 username 或 name，不區分大小寫）",
+        description="搜尋關鍵字（必填，比對 username 或 name，不區分大小寫）。此端點僅支援搜尋，不支援無條件列出所有使用者。",
     ),
     limit: int = Query(
         20,

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, Query, status
+from fastapi import APIRouter, Body, Depends, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -11,7 +11,14 @@ from app.core.security import get_current_user_id
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Validation error (payer not found, not a member, non-member in splits, duplicate splits, invalid amounts)"},
+        status.HTTP_404_NOT_FOUND: {"description": "Group not found"},
+    },
+)
 def create_expense(
     # 使用 Body 並提供 openapi_examples 以便在 Swagger UI 中展示範例請求
     expense_in: ExpenseCreate = Body(
@@ -77,42 +84,3 @@ def create_expense(
         "message": "Expense created successfully",
     }
 
-
-@router.get("/{group_id}")
-def get_expense_list(
-    group_id: UUID,
-    page: int = Query(
-        1,
-        ge=1,
-        openapi_examples={
-            "default_list": {
-                "summary": "查詢群組費用列表",
-                "description": "使用 path 帶入 group_id，query 帶入 page、size 取得該群組的費用列表。",
-                "value": 1,
-            },
-        },
-    ),
-    size: int = Query(
-        10,
-        ge=1,
-        openapi_examples={
-            "default_list": {
-                "summary": "每頁筆數",
-                "description": "預設每頁 10 筆。",
-                "value": 10,
-            },
-        },
-    ),
-    db: Session = Depends(get_db),
-    current_user_id: UUID = Depends(get_current_user_id),
-):
-    """
-    取得群組費用列表
-    """
-    return ExpenseService.get_group_expense_list(
-        db=db,
-        group_id=group_id,
-        page=page,
-        size=size,
-        current_user_id=current_user_id,
-    )
