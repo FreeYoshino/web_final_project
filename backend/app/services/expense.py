@@ -157,11 +157,24 @@ class ExpenseService:
                 Decimal("0.00"),
             )
 
+            splits = [
+                {
+                    "id": split.id,
+                    "user_id": split.user_id,
+                    "user_name": split.user.username,
+                    "split_amount": split.split_amount,
+                    "is_settled": split.is_settled,
+                    "settled_at": split.settled_at,
+                }
+                for split in expense.splits
+            ]
+
             expense_response = ExpenseResponse.model_validate(
                 {
                     **expense.__dict__,
                     "payer_name": expense.payer.username,
                     "group_name": expense.group.name,
+                    "splits": splits,
                     "settled_amount": settled_amount,
                     "pending_amount": pending_amount,
                 }

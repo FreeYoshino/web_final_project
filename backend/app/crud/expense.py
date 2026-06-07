@@ -79,6 +79,7 @@ def get_group_expenses(
             selectinload(Expense.payer),
             selectinload(Expense.group),
             selectinload(Expense.splits),
+            selectinload(Expense.splits).selectinload(ExpenseSplit.user),
         )
         .order_by(Expense.created_at.desc())
         .offset(skip)
