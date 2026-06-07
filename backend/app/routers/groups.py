@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from uuid import UUID
 
 from app.services.balance import BalanceService
+from app.services.expense import ExpenseService
 from app.services.group import GroupService
+from app.services.settlement import SettlementService
 from app.db.database import get_db
 from app.schemas.balance import GroupBalanceResponse
 from app.schemas.group import (
@@ -13,6 +15,7 @@ from app.schemas.group import (
     GroupMemberListResponse,
     UserGroupListResponse,
 )
+from app.schemas.settlement import SettlementListResponse
 
 from app.core.security import get_current_user_id
 
@@ -99,3 +102,100 @@ def get_group_members(
 ):
     """取得群組成員清單"""
     return GroupService.get_group_members(db, group_id, current_user_id)
+
+
+@router.get(
+    "/{group_id}/expenses",
+    status_code=status.HTTP_200_OK,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Group not found"},
+        status.HTTP_403_FORBIDDEN: {"description": "User is not a group member"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Internal server error"},
+    },
+)
+def get_group_expenses(
+    group_id: UUID,
+    page: int = Query(
+        1,
+        ge=1,
+        openapi_examples={
+            "default_list": {
+                "summary": "查詢群組費用列表",
+                "description": "使用 path 帶入 group_id，query 帶入 page、size 取得該群組的費用列表。",
+                "value": 1,
+            },
+        },
+    ),
+    size: int = Query(
+        10,
+        ge=1,
+        openapi_examples={
+            "default_list": {
+                "summary": "每頁筆數",
+                "description": "預設每頁 10 筆。",
+                "value": 10,
+            },
+        },
+    ),
+    db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    取得群組費用列表
+    """
+    return ExpenseService.get_group_expense_list(
+        db=db,
+        group_id=group_id,
+        page=page,
+        size=size,
+        current_user_id=current_user_id,
+    )
+
+
+@router.get(
+    "/{group_id}/settlements",
+    status_code=status.HTTP_200_OK,
+    response_model=SettlementListResponse,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Group not found"},
+        status.HTTP_403_FORBIDDEN: {"description": "User is not a group member"},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"description": "Internal server error"},
+    },
+)
+def get_group_settlements(
+    group_id: UUID,
+    page: int = Query(
+        1,
+        ge=1,
+        openapi_examples={
+            "default_list": {
+                "summary": "查詢群組結算列表",
+                "description": "使用 path 帶入 group_id，query 帶入 page、size 取得該群組的結算交易列表。",
+                "value": 1,
+            },
+        },
+    ),
+    size: int = Query(
+        10,
+        ge=1,
+        openapi_examples={
+            "default_list": {
+                "summary": "每頁筆數",
+                "description": "預設每頁 10 筆。",
+                "value": 10,
+            },
+        },
+    ),
+    db: Session = Depends(get_db),
+    current_user_id: UUID = Depends(get_current_user_id),
+):
+    """
+    取得群組結算列表
+    """
+    return SettlementService.get_group_settlement_list(
+        db=db,
+        group_id=group_id,
+        page=page,
+        size=size,
+        current_user_id=current_user_id,
+    )
