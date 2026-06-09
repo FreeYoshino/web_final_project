@@ -118,7 +118,12 @@ export const userAPI = {
       params: { q: keyword } 
     });
     return response.data;
+  },
+  getMe: async () => {
+    const response = await api.get('/users/me'); 
+    return response.data;
   }
+  
 };
 
 export const billAPI = {
