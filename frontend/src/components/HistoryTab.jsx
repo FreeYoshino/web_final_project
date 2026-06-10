@@ -13,9 +13,9 @@ export default function HistoryTab({ groupId, onSelectExpense }) {
         <div className="text-center py-10 text-gray-400">載入歷史帳單中...</div>
       ) : expensesData?.items && expensesData.items.length > 0 ? (
         expensesData.items.map(exp => (
-          <button 
-            key={exp.id} 
-            onClick={() => onSelectExpense(exp)} 
+          <button
+            key={exp.id}
+            onClick={() => onSelectExpense(exp)}
             className="w-full p-4 bg-white rounded-xl border border-gray-100 shadow-sm flex justify-between items-center hover:bg-gray-50 transition-colors active:scale-[0.98] text-left"
           >
             <div>

@@ -1,6 +1,6 @@
 import axios from 'axios';
 export const api = axios.create({
-  baseURL: 'http://localhost:8000', 
+  baseURL: 'http://localhost:8000',
   timeout: 5000,
   headers: {
     'Content-Type': 'application/json',
@@ -11,7 +11,7 @@ api.interceptors.request.use(
   (config) => {
     // 從瀏覽器的 localStorage 拿出 Token
     const token = localStorage.getItem('token');
-    
+
     if (token) {
       // 如果有 Token，就照著 JWT 標準格式塞入 Authorization header
       config.headers.Authorization = `Bearer ${token}`;
@@ -32,7 +32,7 @@ api.interceptors.response.use(
       // 如果後端回傳 401 Unauthorized (代表 Token 過期或造假)
       console.warn('Token 無效或已過期，請重新登入');
       localStorage.removeItem('token'); // 清除過期 Token
-      
+
       // 將使用者強制踢回登入頁
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
@@ -52,7 +52,7 @@ export const groupAPI = {
     const response = await api.get(`/groups/${groupId}/balances`);
     return response.data;
   },
-//   取得群組歷史賬單
+  //   取得群組歷史賬單
   getGroupExpenses: async (groupId) => {
     const response = await api.get(`/groups/${groupId}/expenses`);
     return response.data;
@@ -64,7 +64,7 @@ export const groupAPI = {
     return response.data;
   },
 
-  getSettlements: async(groupId) => {
+  getSettlements: async (groupId) => {
     const response = await api.get(`/groups/${groupId}/settlements`);
     return response.data;
   },
@@ -94,14 +94,14 @@ export const authAPI = {
     const response = await api.post('/users', userData); // 請和組員確認正確的 URL 路徑
     return response.data;
   },
-  
+
   // 2. 登入 (先預留位置)
   login: async (credentials) => {
     const formData = new URLSearchParams();
     formData.append('username', credentials.email);
     formData.append('password', credentials.password);
 
-    const response = await api.post('login', formData,{
+    const response = await api.post('login', formData, {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded' // 告訴後端這是表單
       }
@@ -115,15 +115,15 @@ export const userAPI = {
   searchUsers: async (keyword) => {
     // 發送 GET /users?q=alice 搜尋請求
     const response = await api.get('/users', {
-      params: { q: keyword } 
+      params: { q: keyword }
     });
     return response.data;
   },
   getMe: async () => {
-    const response = await api.get('/users/me'); 
+    const response = await api.get('/users/me');
     return response.data;
   }
-  
+
 };
 
 export const billAPI = {

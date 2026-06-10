@@ -41,7 +41,7 @@ export default function MembersTab({ group }) {
       alert('加入成員成功！');
       queryClient.invalidateQueries({ queryKey: ['groupMembers', group.id] });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      setSearchInput(''); 
+      setSearchInput('');
     },
     onError: (error) => {
       alert('加入失敗：' + (error.response?.data?.detail || error.message));
@@ -97,8 +97,8 @@ export default function MembersTab({ group }) {
             </div>
           ) : (
             <div className="p-4 text-center text-sm text-gray-500">
-              {searchResults.length > 0 
-                ? "找到的使用者都已經在群組內囉！" 
+              {searchResults.length > 0
+                ? "找到的使用者都已經在群組內囉！"
                 : "找不到相符的使用者"}
             </div>
           )}
@@ -117,7 +117,7 @@ export default function MembersTab({ group }) {
               const memberName = member.name || member.username || member.user_name || "未知成員";
               const username = member.username || member.user_name || "未知帳號";
               const realName = member.name ? `(${member.name})` : "";
-              
+
               return (
                 <div key={memberId} className="flex justify-between items-center p-3 bg-white rounded-xl border border-gray-100 shadow-sm">
                   <div className="flex items-center gap-3">

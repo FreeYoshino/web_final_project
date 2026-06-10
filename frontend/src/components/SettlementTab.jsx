@@ -36,8 +36,8 @@ export default function SettlementTab({ groupId, onInitiateSettlement, currentUs
 
       {/* 只有當身分是「我需要還款」時，才顯示總結算按鈕 */}
       {type === 'debt' && (
-        <button 
-          onClick={() => onInitiateSettlement({ payer_id: tx.from_user_id, receiver_id: tx.to_user_id, amount: tx.amount, expense_id: null })} 
+        <button
+          onClick={() => onInitiateSettlement({ payer_id: tx.from_user_id, receiver_id: tx.to_user_id, amount: tx.amount, expense_id: null })}
           className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-4 py-2 rounded-lg font-bold text-sm transition-colors"
         >
           總結算
