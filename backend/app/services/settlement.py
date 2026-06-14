@@ -1,4 +1,5 @@
 import math
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -6,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.crud.balance import get_group_balances as crud_get_group_balances
 from app.crud.settlement import SettlementCrud
 from app.models.expense import Expense, ExpenseSplit
 from app.models.group import Group, GroupMember
@@ -166,34 +168,39 @@ class SettlementService:
                     status_code=status.HTTP_400_BAD_REQUEST, detail="相關費用不屬於此群組"
                 )
 
+            # 檢查付款人在該費用中是否有分攤記錄（不限是否已結清，因為可能有部分結清）
             payer_split = db.scalar(
                 select(ExpenseSplit).where(
                     ExpenseSplit.expense_id == settlement_in.expense_id,
                     ExpenseSplit.user_id == current_user_id,
-                    ExpenseSplit.is_settled.is_(False),
                 )
             )
             if payer_split is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="付款人在該費用中沒有可結清的分攤明細",
+                    detail="付款人在該費用中沒有分攤明細",
                 )
 
-        else:
-            pending_split = db.scalar(
-                select(ExpenseSplit)
-                .join(
-                    Expense,
-                    Expense.id == ExpenseSplit.expense_id,
-                )
-                .where(
-                    Expense.group_id == settlement_in.group_id,
-                    ExpenseSplit.user_id == current_user_id,
-                    ExpenseSplit.is_settled.is_(False),
-                )
+        # 使用 balance 計算來驗證付款人是否仍有待結清餘額
+        # （取代原先只檢查 is_settled 的邏輯，因為 is_settled 是 boolean，
+        #   無法表示「部分結清」的狀態，導致部分還款後無法再次發起 settlement）
+        balances = crud_get_group_balances(db, settlement_in.group_id)
+        payer_balance = None
+        for b in balances:
+            if b.user_id == current_user_id:
+                payer_balance = b
+                break
+
+        if payer_balance is None or payer_balance.net_balance >= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="付款人沒有可結清的餘額",
             )
-            if pending_split is None:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="付款人沒有可結清的分攤明細",
-                )
+
+        # 結算金額不得超過待結清餘額（net_balance 為負，所以取絕對值比較）
+        outstanding = abs(Decimal(str(payer_balance.net_balance)))
+        if settlement_in.amount > outstanding:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"結算金額({settlement_in.amount})超過待結清餘額({outstanding})",
+            )
