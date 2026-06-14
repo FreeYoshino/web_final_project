@@ -8,8 +8,10 @@ export default function SplitSection({
   handleExactAmountChange, 
   equalShare, 
   parsedTotal, 
-  diff 
+  diff,
+  currentUser
 }) {
+  const mMe = currentUser?.id;
   return (
     <>
       {/* 模式切換 Toggle */}
@@ -38,11 +40,10 @@ export default function SplitSection({
       <div className="space-y-3">
         {members.map((member) => {
           const mId = member.user_id;
-          const mName = member.name || member.username || member.user_name || "未知";
-          
+          const mName = member.name || "未知";
           return (
             <div key={mId} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-              <span className="font-medium text-gray-700">{mName}</span>
+              <span className="font-medium text-gray-700">{mName}{mId === mMe &&(<span className="ml-1 text-xs text-gray-500 opacity-80 font-normal">(代墊)</span>)}</span>
               
               {splitMode === 'equal' ? (
                 <span className="text-gray-600 font-medium">${equalShare}</span>

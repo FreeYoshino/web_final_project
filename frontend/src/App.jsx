@@ -5,10 +5,24 @@ import NewBillPage from './pages/NewBillPage';
 import GroupsPage from './pages/GroupsPage';
 import AuthPage from './pages/AuthPage';
 import ProfilePage from './pages/ProfilePage';
+import { useEffect } from 'react';
 
 const queryClient = new QueryClient();
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key === 'token'){
+        window.location.reload();
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+
+  }, []);
 
   if (!token) {
     // replace 屬性可以讓使用者按「上一頁」時不會陷入跳轉迴圈
