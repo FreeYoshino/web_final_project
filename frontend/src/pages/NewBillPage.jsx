@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Calculator, FileText } from 'lucide-react';
-import { groupAPI, billAPI } from '../services/api';
+import { groupAPI, billAPI, userAPI} from '../services/api';
 import EmptyGroupState from '../components/EmptyGroupState';
-import PayerSelector from '../components/PayerSelector';
 import SplitSection from '../components/SplitSection';
 
 export default function NewBillPage() {
@@ -17,6 +16,12 @@ export default function NewBillPage() {
     queryKey: ['groups'],
     queryFn: groupAPI.getGroups
   });
+
+  const { data: currentUserData } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: userAPI.getMe,
+  });
+  const currentUser = currentUserData;
   const groups = groupsData?.groups || [];
 
   const urlGroupId = searchParams.get('groupId');
@@ -34,7 +39,6 @@ export default function NewBillPage() {
     enabled: !!activeGroupId
   });
   const members = Array.isArray(membersData) ? membersData : (membersData?.members || []);
-
   // --- 2. 狀態管理 ---
   const [activePayerId, setActivePayerId] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
@@ -114,15 +118,6 @@ export default function NewBillPage() {
           </select>
         )}
       </div>
-
-      {/* 選擇代墊人卡片 */}
-      <PayerSelector 
-        members={members} 
-        isMembersLoading={isMembersLoading} 
-        activePayerId={activePayerId} 
-        setActivePayerId={setActivePayerId} 
-      />
-
       {/* 記帳表單主體 */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 max-w-md mx-auto mt-4">
         <div className="flex items-center gap-2 mb-6 text-gray-800">
@@ -174,6 +169,7 @@ export default function NewBillPage() {
             equalShare={equalShare}
             parsedTotal={parsedTotal}
             diff={diff}
+            currentUser={currentUser}
           />
 
           {/* 送出按鈕 */}

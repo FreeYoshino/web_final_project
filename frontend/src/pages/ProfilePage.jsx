@@ -1,11 +1,15 @@
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { User, LogOut, Settings, Shield, Bell } from 'lucide-react';
-
+import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { User, LogOut, Settings, Shield, Bell, Loader2 } from 'lucide-react';
+import { userAPI } from '../services/api';
 export default function ProfilePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
+  const { data: currentUserData , isLoading } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: userAPI.getMe,
+  });
+  const currentUser = currentUserData;
   // 登出邏輯
   const handleLogout = () => {
     const isConfirmed = window.confirm('確定要登出嗎？');
@@ -22,6 +26,23 @@ export default function ProfilePage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64 mt-4">
+        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+        <span className="ml-2 text-gray-500 font-medium">載入中...</span>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="text-center text-gray-500 mt-10">
+        無法取得使用者資料，請嘗試重新登入。
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-md mx-auto space-y-6 animate-in fade-in duration-300 mt-4">
 
@@ -34,7 +55,7 @@ export default function ProfilePage() {
           <User size={32} />
         </div>
         <div>
-          <h2 className="text-xl font-bold text-gray-800">我的帳號</h2>
+          <h2 className="text-xl font-bold text-gray-800">{currentUser?.name}</h2>
           <p className="text-sm text-gray-500 mt-1">管理您的個人資訊與偏好設定</p>
         </div>
       </div>
