@@ -78,16 +78,31 @@ class ExpenseService:
                 status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
             ) from exc
 
+        # 過濾掉分攤金額為 0 的 split，避免建立無實際應付金額的分攤記錄
+        filtered_splits = []
+        filtered_amounts = []
+        for split_in, amt in zip(expense_in.splits, split_amounts):
+            if amt > 0:
+                filtered_splits.append(split_in)
+                filtered_amounts.append(amt)
+
+        if not filtered_splits:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="所有分攤金額均為 0，無法建立費用",
+            )
+
         expense_in_with_payer = ExpenseCreateWithPayer.model_validate(
             {
                 **expense_in.model_dump(),
                 "paid_by_id": current_user_id,
+                "splits": [s.model_dump() for s in filtered_splits],
             }
         )
         return create_group_expense_crud(
             db=db,
             expense_in=expense_in_with_payer,
-            split_amounts=split_amounts,
+            split_amounts=filtered_amounts,
         )
 
     @staticmethod
