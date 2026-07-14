@@ -40,7 +40,7 @@
         <br />
         <sub><b>👤 Atlas0319</b></sub>
         <br />
-        <sub>📧 email@example.com</sub>
+        <sub>📧 cct25397@gmail.com</sub>
       </a>
       <br />
       <sub>🎨 <strong>前端工程師 · Frontend Developer</strong></sub>

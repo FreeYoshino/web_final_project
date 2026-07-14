@@ -89,7 +89,7 @@ export default function AuthPage() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (isLoginMode) {
-      // 👉 登入送出：只抓 formData 裡面的 email 和 password
+      // 登入送出：只抓 formData 裡面的 email 和 password
       loginMutation.mutate({
         email: formData.email,
         password: formData.password
@@ -118,7 +118,7 @@ export default function AuthPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* 👉 永遠顯示 Email 欄位 (因為登入/註冊都需要) */}
+          {/* 永遠顯示 Email 欄位  */}
           <InputField
             icon={Mail}
             name="email"
@@ -128,7 +128,7 @@ export default function AuthPage() {
             onChange={handleChange}
           />
 
-          {/* 👉 只有在「註冊」模式才顯示的欄位 */}
+          {/* 只有在「註冊」模式才顯示的欄位 */}
           {!isLoginMode && (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
               <InputField icon={User} name="username" placeholder="使用者帳號 (例如: alice123)" value={formData.username} onChange={handleChange} />
@@ -137,7 +137,7 @@ export default function AuthPage() {
             </div>
           )}
 
-          {/* 👉 永遠顯示密碼欄位 */}
+          {/* 永遠顯示密碼欄位 */}
           <InputField
             icon={Lock}
             name="password"
